@@ -20,6 +20,7 @@ void main() {
     ('Gray 100', AppColors.gray100, 0xFFF2F4F6),
     ('Gray 50', AppColors.gray50, 0xFFF9FAFB),
     ('White', AppColors.white, 0xFFFFFFFF),
+    ('Dim', AppColors.dim, 0x73191F28),
   ];
 
   for (final (name, color, argb) in cases) {
