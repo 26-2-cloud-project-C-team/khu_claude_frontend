@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:team_frontend/core/theme/app_theme.dart';
 import 'package:team_frontend/core/widgets/app_text_field.dart';
+
+import '../../helpers/pump_test_app.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, AppTextField field) {
-    return tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(body: Center(child: field)),
-      ),
-    );
+    return tester.pumpTestApp(Center(child: field));
   }
 
   testWidgets('한 줄 입력은 높이 56이고 플레이스홀더를 보여준다', (tester) async {

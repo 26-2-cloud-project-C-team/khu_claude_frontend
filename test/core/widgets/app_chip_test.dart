@@ -2,18 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:team_frontend/core/theme/app_colors.dart';
-import 'package:team_frontend/core/theme/app_theme.dart';
 import 'package:team_frontend/core/widgets/app_chip.dart';
 import 'package:team_frontend/core/widgets/app_selection_mode.dart';
 
+import '../../helpers/pump_test_app.dart';
+
 void main() {
   Future<void> pump(WidgetTester tester, AppChip chip) {
-    return tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(body: Center(child: chip)),
-      ),
-    );
+    return tester.pumpTestApp(Center(child: chip));
   }
 
   Finder chipBody() => find.descendant(
