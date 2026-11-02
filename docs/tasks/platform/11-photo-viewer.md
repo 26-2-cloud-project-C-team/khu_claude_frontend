@@ -19,4 +19,4 @@
 ## 참고
 
 - 화면 설계서 AD-04 C, US-04 2번 항목
-- API 명세 3.2 Space `photos`
+- API 명세 Space `photos`(이전 명세 3.2. 새 명세에서의 위치는 확인 필요)
