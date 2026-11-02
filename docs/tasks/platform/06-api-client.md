@@ -17,6 +17,7 @@ B·C의 Repository 구현체가 쓰는 HTTP 클라이언트와 공통 예외를 
   - 5xx는 본문과 상관없이 상태 코드로 처리한다. `502`·`504`는 본문이 에러 스키마가 아닐 수 있다
   - `429`·`503`의 `Retry-After` 헤더. `429`는 U5·U6의 요청 제한(세션 분당 10회, IP 분당 60회)을 넘었을 때 `COMMON_RATE_LIMITED`로 온다
 - [ ] 관리자 API의 `401`을 C가 받아 AD-01로 보낼 수 있도록 알림 지점 제공
+- [ ] `lib/app/dependencies.dart`: API Client 생성과 `provider` 연결. Repository 구현체는 B·C가 여기에 추가한다(09에서 옮겨 옴)
 
 ## 응답 처리 규칙
 
