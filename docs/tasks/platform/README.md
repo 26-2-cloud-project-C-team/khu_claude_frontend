@@ -10,7 +10,7 @@ B·C가 기다리지 않도록 막는 작업부터 한다.
 | --- | --- | --- |
 | 1 | [01 폴더 구조와 패키지 세팅](01-project-setup.md) | 전체 |
 | 2 | [13 테스트 헬퍼와 Integration Test 셋업](13-test-setup.md) | 전체 |
-| 3 | [09 라우터 골격과 `dependencies.dart` 조립](09-router-and-dependencies.md) | B, C |
+| 3 | [09 라우터 골격](09-router-and-dependencies.md) | B, C |
 | 4 | [02 디자인 토큰](02-design-tokens.md) | B, C |
 | 5 | [03 공통 컴포넌트: 버튼·옵션 행·칩·입력 필드·카드](03-common-components-basic.md) | B, C |
 | 6 | [04 공통 컴포넌트: 바텀시트·상태 배지·별점·숫자 스테퍼](04-common-components-overlay.md) | B, C |
@@ -30,6 +30,5 @@ B·C는 3~10번이 끝나기 전에도 Fake Repository로 ViewModel과 Unit Test
 | --- | --- |
 | HTTP 패키지(`http` / `dio`) | 01, 06 |
 | 로컬 개발 서버의 `/api/…` 프록시 구성(운영은 같은 origin으로 확정) | 06 |
-| URL 방식(path / hash). path면 서버가 모든 경로를 `index.html`로 돌려줘야 한다 | 09 |
 | 390 너비보다 넓은 화면에서 레이아웃 | 05 |
 | 카카오 개발자 앱 키와 허용 도메인 | 12 |
