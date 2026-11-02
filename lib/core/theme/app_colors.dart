@@ -22,4 +22,6 @@ abstract final class AppColors {
   static const gray50 = Color(0xFFF9FAFB);
 
   static const white = Color(0xFFFFFFFF);
+
+  static const dim = Color(0x73191F28);
 }
