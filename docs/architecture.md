@@ -135,6 +135,9 @@ test/
 
 integration_test/
 └── main_flow_test.dart
+
+test_driver/
+└── integration_test.dart
 ```
 
 ### 디렉터리별 역할
@@ -150,7 +153,8 @@ integration_test/
 - `test/`: `lib/`의 구조를 그대로 따른다. `lib/features/auth/viewmodels/login_view_model.dart`의 테스트는 `test/features/auth/viewmodels/login_view_model_test.dart`에 있어야 한다. 구현과 테스트의 대응이 경로만으로 드러나게 하려는 것이다.
 - `test/fakes/`: 여러 테스트에서 공유하는 Fake 구현체. 이름은 `Fake` 접두사를 붙인다(`FakeAuthRepository`).
 - `test/helpers/`: 테스트용 앱 래핑(`MaterialApp`, Provider, 테스트 Router 주입 등) 같은 공통 셋업.
-- `integration_test/`: 핵심 사용자 흐름만 담는 브라우저 통합 테스트.
+- `integration_test/`: 핵심 사용자 흐름만 담는 브라우저 통합 테스트. 실행 방법은 루트 `README.md`에 있다.
+- `test_driver/`: `flutter drive`가 Integration Test를 Chrome에서 돌릴 때 쓰는 진입점. 내용은 바꿀 일이 없다.
 
 ### Feature를 나누는 기준
 
