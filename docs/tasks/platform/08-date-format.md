@@ -18,4 +18,4 @@ API의 날짜·시각 형식을 화면 표기로 바꾸는 순수 Dart 함수를
 ## 참고
 
 - `docs/design-system.md` 타이포 위계(날짜 규칙)
-- API 명세 1.1 공통 규칙(시간), 3.2 Space `hours`
+- API 명세 C1 공통 규칙(시간), Space `hours`(이전 명세 3.2. 새 명세에서의 위치는 확인 필요)

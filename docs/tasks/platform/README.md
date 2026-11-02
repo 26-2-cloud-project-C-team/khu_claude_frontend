@@ -15,7 +15,7 @@ B·C가 기다리지 않도록 막는 작업부터 한다.
 | 5 | [03 공통 컴포넌트: 버튼·옵션 행·칩·입력 필드·카드](03-common-components-basic.md) | B, C |
 | 6 | [04 공통 컴포넌트: 바텀시트·상태 배지·별점·숫자 스테퍼](04-common-components-overlay.md) | B, C |
 | 7 | [05 단계형 화면 레이아웃](05-step-layout.md) | B(US-01·02), C(AD-03) |
-| 8 | [06 API Client와 RFC 9457 에러 파싱](06-api-client.md) | B, C의 Repository 구현체 |
+| 8 | [06 API Client와 에러 응답 파싱](06-api-client.md) | B, C의 Repository 구현체 |
 | 9 | [07 공용 코드값과 표시 문구](07-shared-enums.md) | B, C |
 | 10 | [08 날짜·시각 포맷 유틸](08-date-format.md) | B, C |
 | 11 | [10 건물 모델과 건물 목록·검색 위젯](10-building-list.md) | B(US-03), C(AD-03) |
@@ -29,7 +29,7 @@ B·C는 3~10번이 끝나기 전에도 Fake Repository로 ViewModel과 Unit Test
 | 항목 | 관련 작업 |
 | --- | --- |
 | HTTP 패키지(`http` / `dio`) | 01, 06 |
-| 로컬 개발에서 API를 같은 도메인으로 붙이는 방법(프록시 등) | 06 |
+| 로컬 개발 서버의 `/api/…` 프록시 구성(운영은 같은 origin으로 확정) | 06 |
 | URL 방식(path / hash). path면 서버가 모든 경로를 `index.html`로 돌려줘야 한다 | 09 |
 | 390 너비보다 넓은 화면에서 레이아웃 | 05 |
 | 카카오 개발자 앱 키와 허용 도메인 | 12 |
