@@ -61,12 +61,8 @@ class _SearchStepsPageState extends State<SearchStepsPage> {
   Future<void> _search() async {
     final result = await _vm.search();
     if (!mounted) return;
-    if (result == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('잠시 후 다시 시도해주세요')),
-      );
-      return;
-    }
+    // 실패하면 버튼만 다시 켠다. 통신 오류 재시도 안내는 설계(DS-00 ②)에서 뺐다.
+    if (result == null) return;
     widget.onSearched(result);
   }
 

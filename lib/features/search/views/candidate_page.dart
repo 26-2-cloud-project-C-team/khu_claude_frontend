@@ -17,7 +17,6 @@ class CandidatePage extends StatefulWidget {
     required this.onClose,
     required ValueChanged<SearchStep> this.onEditStep,
     required this.onGo,
-    required VoidCallback this.onEmpty,
     required this.onOpenPhoto,
   }) : onUnavailable = null;
 
@@ -31,8 +30,7 @@ class CandidatePage extends StatefulWidget {
     required VoidCallback this.onUnavailable,
     required this.onOpenPhoto,
   }) : condition = null,
-       onEditStep = null,
-       onEmpty = null;
+       onEditStep = null;
 
   final CandidateViewModel viewModel;
 
@@ -48,9 +46,6 @@ class CandidatePage extends StatefulWidget {
   /// '여기로 갈게요': 이 후보로 길찾기(US-06) 시작.
   /// 복구 상태에서는 출발점이 없으므로 US-06이 현재 위치 → US-03 순으로 다시 구한다.
   final ValueChanged<CandidateDetail> onGo;
-
-  /// 받아 둔 후보가 모두 사라졌다. US-05로.
-  final VoidCallback? onEmpty;
 
   /// 복구하려던 공간을 볼 수 없다(U3 404). US-00으로 보내며 [spaceUnavailableMessage] 토스트.
   final VoidCallback? onUnavailable;
@@ -85,10 +80,6 @@ class _CandidatePageState extends State<CandidatePage> {
   void _onChanged() {
     if (_vm.isUnavailable) {
       widget.onUnavailable?.call();
-      return;
-    }
-    if (_vm.isEmpty) {
-      widget.onEmpty?.call();
       return;
     }
     // 다른 순위로 넘기면 스크롤은 맨 위에서 다시 시작한다.
@@ -157,7 +148,7 @@ class _CandidatePageState extends State<CandidatePage> {
                 : [TextButton(onPressed: _openConditions, child: const Text('조건'))],
           ),
           body: current == null
-              ? _LoadingOrError(viewModel: _vm)
+              ? _Loading(viewModel: _vm)
               : GestureDetector(
                   onHorizontalDragEnd: _onSwipe,
                   child: _CandidateBody(
@@ -225,19 +216,17 @@ class _RestoredBanner extends StatelessWidget {
   }
 }
 
-class _LoadingOrError extends StatelessWidget {
-  const _LoadingOrError({required this.viewModel});
+/// 복구 중 U3를 기다리는 동안만 보인다.
+/// 볼 수 없는 공간이면 곧 US-00으로 넘어가고, 통신 오류 재시도는 설계(DS-00 ②)에서 빼서 비워 둔다.
+class _Loading extends StatelessWidget {
+  const _Loading({required this.viewModel});
 
   final CandidateViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
-    // 후보가 모두 사라졌거나 복구할 공간을 볼 수 없으면 곧 다른 화면으로 넘어가므로 비워 둔다.
-    if (viewModel.isEmpty) return const SizedBox.shrink();
-    if (viewModel.error == null) return const Center(child: CircularProgressIndicator());
-    return Center(
-      child: TextButton(onPressed: viewModel.retry, child: const Text('다시 불러오기')),
-    );
+    if (!viewModel.isLoading) return const SizedBox.shrink();
+    return const Center(child: CircularProgressIndicator());
   }
 }
 

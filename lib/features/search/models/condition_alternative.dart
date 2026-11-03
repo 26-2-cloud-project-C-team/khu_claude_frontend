@@ -1,42 +1,33 @@
 import 'requirement.dart';
 import 'search_condition.dart';
-import 'search_result.dart';
 
-/// 결과가 0곳일 때 조건 하나만 바꾸는 대안(US-05).
+/// 결과가 0곳일 때 조건 하나만 바꾸는 대안(US-05). U2 `alternatives[].type`.
+/// 대안은 서버가 만든다(필요 조건 1개 제거 → 인원 1명 감소 → 필요 조건 전체 제거).
 sealed class ConditionAlternative {
   const ConditionAlternative();
-
-  SearchCondition applyTo(SearchCondition condition);
 
   String get label;
 }
 
+/// `DROP_REQUIREMENT`
 class RemoveRequirement extends ConditionAlternative {
   const RemoveRequirement(this.requirement);
 
   final Requirement requirement;
 
   @override
-  SearchCondition applyTo(SearchCondition c) =>
-      c.copyWith(requirements: {...c.requirements}..remove(requirement));
-
-  @override
   String get label => '${requirement.label} 조건 빼기';
 
   @override
-  bool operator ==(Object other) =>
-      other is RemoveRequirement && other.requirement == requirement;
+  bool operator ==(Object other) => other is RemoveRequirement && other.requirement == requirement;
 
   @override
   int get hashCode => requirement.hashCode;
 }
 
+/// `DECREASE_HEADCOUNT`
 class DecreaseHeadcount extends ConditionAlternative {
   const DecreaseHeadcount();
-
-  @override
-  SearchCondition applyTo(SearchCondition c) =>
-      c.copyWith(headcount: c.headcount - 1);
 
   @override
   String get label => '인원 1명 줄이기';
@@ -48,11 +39,9 @@ class DecreaseHeadcount extends ConditionAlternative {
   int get hashCode => (DecreaseHeadcount).hashCode;
 }
 
+/// `CLEAR_REQUIREMENTS`
 class ClearRequirements extends ConditionAlternative {
   const ClearRequirements();
-
-  @override
-  SearchCondition applyTo(SearchCondition c) => c.copyWith(requirements: const {});
 
   @override
   String get label => '필요 조건 모두 지우기';
@@ -64,24 +53,19 @@ class ClearRequirements extends ConditionAlternative {
   int get hashCode => (ClearRequirements).hashCode;
 }
 
-/// 시도해볼 대안을 생성 순서대로 돌려준다.
-/// 순서: 필요 조건 1개 제거 → 인원 1명 감소 → 필요 조건 전체 제거(US-05 Check Point).
-/// 필요 조건이 1개뿐이면 '전체 제거'는 '1개 제거'와 같아서 넣지 않는다.
-List<ConditionAlternative> alternativesFor(SearchCondition condition) {
-  return [
-    for (final r in Requirement.values)
-      if (condition.requirements.contains(r)) RemoveRequirement(r),
-    if (condition.headcount > SearchCondition.minHeadcount) const DecreaseHeadcount(),
-    if (condition.requirements.length >= 2) const ClearRequirements(),
-  ];
-}
-
-/// 실제로 검색해 본 대안과 그 결과.
+/// U2가 돌려준 대안 하나. 서버가 그 조건으로 미리 검색해 본 후보 수를 함께 준다.
 class ScoredAlternative {
-  const ScoredAlternative({required this.alternative, required this.result});
+  const ScoredAlternative({
+    required this.alternative,
+    required this.condition,
+    required this.count,
+  });
 
   final ConditionAlternative alternative;
-  final SearchResult result;
 
-  int get count => result.count;
+  /// 재검색에 쓸 조건(`alternatives[].query`). 바꾸지 않고 그대로 U2에 넘긴다.
+  final SearchCondition condition;
+
+  /// 이 조건으로 검색한 후보 수. 1 이상.
+  final int count;
 }

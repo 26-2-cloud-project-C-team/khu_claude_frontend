@@ -21,18 +21,14 @@ class SpaceReview {
 
 /// 재조사 결과(US-04 이용 의견 영역의 Q&A).
 class ReinspectionAnswer {
-  const ReinspectionAnswer({
-    required this.question,
-    required this.answer,
-    required this.checkedAt,
-  });
+  const ReinspectionAnswer({required this.question, required this.answer, required this.checkedAt});
 
   final String question;
   final String answer;
   final DateTime checkedAt;
 }
 
-/// 후보 상세(US-04)에 필요한 공간 정보. U3 응답.
+/// 후보 상세(US-04)에 필요한 공간 정보. U2 `candidates[]`, U3 응답.
 // TODO: 필드 이름·타입은 API 명세 3장과 대조해 맞춘다(명세 열람 전 화면 설계서 기준).
 class CandidateDetail {
   const CandidateDetail({
@@ -110,14 +106,4 @@ class CandidateDetail {
   /// '충전되는 테이블 80%'
   int get chargeablePercent =>
       tableCount == 0 ? 0 : (chargeableTableCount * 100 / tableCount).round();
-}
-
-/// U3 응답 한 묶음.
-class CandidateDetailsBatch {
-  const CandidateDetailsBatch({required this.details, this.missingIds = const {}});
-
-  final Map<int, CandidateDetail> details;
-
-  /// 검색 이후 비공개 전환 등으로 더는 보여줄 수 없는 공간. 순위에서 건너뛴다.
-  final Set<int> missingIds;
 }

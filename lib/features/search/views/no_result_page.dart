@@ -15,7 +15,7 @@ class NoResultPage extends StatefulWidget {
 
   final NoResultViewModel viewModel;
 
-  /// 고른 대안의 결과. SearchFlowViewModel.adopt 후 US-04(1위부터)로 보낸다.
+  /// 고른 대안으로 다시 검색한 결과. SearchFlowViewModel.adopt 후 US-04(1위부터)로 보낸다.
   final ValueChanged<SearchResult> onAdopt;
 
   /// '처음부터 다시 설정': 조건 초기화 후 US-00으로.
@@ -28,10 +28,10 @@ class NoResultPage extends StatefulWidget {
 class _NoResultPageState extends State<NoResultPage> {
   NoResultViewModel get _vm => widget.viewModel;
 
-  @override
-  void initState() {
-    super.initState();
-    _vm.load();
+  Future<void> _adopt() async {
+    final result = await _vm.adopt();
+    // 실패하면 버튼만 다시 켠다. 통신 오류 재시도 안내는 설계(DS-00 ②)에서 뺐다.
+    if (mounted && result != null) widget.onAdopt(result);
   }
 
   @override
@@ -50,21 +50,18 @@ class _NoResultPageState extends State<NoResultPage> {
               const SizedBox(height: 4),
               Text('조건을 하나만 바꾸면 찾을 수 있어요', style: theme.textTheme.bodyMedium),
               const SizedBox(height: 24),
-              if (_vm.isLoading)
-                const Center(child: CircularProgressIndicator())
-              else
-                for (var i = 0; i < _vm.alternatives.length; i++)
-                  OptionTile(
-                    label: _vm.alternatives[i].alternative.label,
-                    selected: _vm.selectedIndex == i,
-                    onTap: () => _vm.select(i),
-                    trailing: Badge(
-                      label: Text('${_vm.alternatives[i].count}곳'),
-                      backgroundColor: _vm.selectedIndex == i
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outline,
-                    ),
+              for (var i = 0; i < _vm.alternatives.length; i++)
+                OptionTile(
+                  label: _vm.alternatives[i].alternative.label,
+                  selected: _vm.selectedIndex == i,
+                  onTap: () => _vm.select(i),
+                  trailing: Badge(
+                    label: Text('${_vm.alternatives[i].count}곳'),
+                    backgroundColor: _vm.selectedIndex == i
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outline,
                   ),
+                ),
             ],
           ),
           bottomNavigationBar: SafeArea(
@@ -76,7 +73,7 @@ class _NoResultPageState extends State<NoResultPage> {
                 children: [
                   FilledButton(
                     style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                    onPressed: _vm.canSubmit ? () => widget.onAdopt(_vm.selectedResult!) : null,
+                    onPressed: _vm.canSubmit ? _adopt : null,
                     child: Text(count == null ? '후보 보기' : '$count곳 보기'),
                   ),
                   TextButton(onPressed: widget.onRestart, child: const Text('처음부터 다시 설정')),

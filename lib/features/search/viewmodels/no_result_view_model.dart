@@ -5,70 +5,53 @@ import '../models/condition_alternative.dart';
 import '../models/search_condition.dart';
 import '../models/search_result.dart';
 
-/// 결과 없음(US-05). 조건 하나만 바꿔 실제로 검색해 보고, 1곳 이상인 대안만
-/// 후보 수가 많은 순으로 최대 [maxAlternatives]개 보여준다.
+/// 결과 없음(US-05). 0곳 검색 결과에 U2가 함께 준 대안(후보 수가 많은 순, 최대 3개)을 보여주고,
+/// 고른 대안의 조건으로 다시 검색한다.
 class NoResultViewModel extends ChangeNotifier {
-  NoResultViewModel({
-    required this._repository,
-    required this.condition,
-    this.maxAlternatives = 3,
-  });
+  NoResultViewModel({required this._repository, required this.result});
 
   final SearchRepository _repository;
-  final SearchCondition condition;
-  final int maxAlternatives;
 
-  List<ScoredAlternative> _alternatives = const [];
+  /// 0곳이었던 검색 결과.
+  final SearchResult result;
+
   int? _selectedIndex;
-  bool _isLoading = false;
+  bool _isSearching = false;
 
-  List<ScoredAlternative> get alternatives => _alternatives;
+  SearchCondition get condition => result.condition;
+  List<ScoredAlternative> get alternatives => result.alternatives;
   int? get selectedIndex => _selectedIndex;
-  bool get isLoading => _isLoading;
+  bool get isSearching => _isSearching;
 
   /// CTA 활성 여부. 선택 전에는 '후보 보기'로 비활성이다.
-  bool get canSubmit => _selectedIndex != null;
+  bool get canSubmit => _selectedIndex != null && !_isSearching;
 
   /// CTA 문구용 후보 수('8곳 보기'). 선택 전에는 null.
   int? get selectedCount => selected?.count;
 
-  ScoredAlternative? get selected =>
-      _selectedIndex == null ? null : _alternatives[_selectedIndex!];
-
-  /// 고른 대안의 검색 결과. View는 SearchFlowViewModel.adopt 후 US-04로 보낸다.
-  SearchResult? get selectedResult => selected?.result;
-
-  Future<void> load() async {
-    _isLoading = true;
-    notifyListeners();
-    final candidates = alternativesFor(condition);
-    final scored = await Future.wait(candidates.map(_tryAlternative));
-    final usable = scored.whereType<ScoredAlternative>().where((s) => s.count > 0).toList();
-    // List.sort는 안정 정렬이 아니라서 생성 순서를 직접 동률 기준으로 쓴다.
-    final order = {for (var i = 0; i < candidates.length; i++) candidates[i]: i};
-    usable.sort((a, b) {
-      final byCount = b.count.compareTo(a.count);
-      return byCount != 0 ? byCount : order[a.alternative]!.compareTo(order[b.alternative]!);
-    });
-    _alternatives = usable.take(maxAlternatives).toList();
-    _selectedIndex = null;
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  Future<ScoredAlternative?> _tryAlternative(ConditionAlternative alternative) async {
-    try {
-      final result = await _repository.search(alternative.applyTo(condition));
-      return ScoredAlternative(alternative: alternative, result: result);
-    } on Exception {
-      return null;
-    }
-  }
+  ScoredAlternative? get selected => _selectedIndex == null ? null : alternatives[_selectedIndex!];
 
   /// 단일 선택. 같은 항목을 다시 눌러도 선택을 유지한다.
   void select(int index) {
-    if (index < 0 || index >= _alternatives.length) return;
+    if (index < 0 || index >= alternatives.length) return;
     _selectedIndex = index;
     notifyListeners();
+  }
+
+  /// CTA. 고른 대안의 조건을 바꾸지 않고, 처음 검색의 기준 시각 그대로 U2를 다시 부른다.
+  /// 성공하면 결과를 돌려주고 View가 SearchFlowViewModel.adopt 후 US-04로 보낸다. 실패하면 null.
+  Future<SearchResult?> adopt() async {
+    final alternative = selected;
+    if (alternative == null || _isSearching) return null;
+    _isSearching = true;
+    notifyListeners();
+    try {
+      return await _repository.search(alternative.condition, searchedAt: result.searchedAt);
+    } on Exception {
+      return null;
+    } finally {
+      _isSearching = false;
+      notifyListeners();
+    }
   }
 }

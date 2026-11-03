@@ -35,15 +35,17 @@ void main() {
   });
 
   Future<void> pumpPage(WidgetTester tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: SearchStepsPage(
-        viewModel: vm,
-        onExit: () => exited++,
-        onChooseBuilding: ({required bool locationUnavailable}) =>
-            chooseBuildingUnavailable = locationUnavailable,
-        onSearched: (r) => searched = r,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SearchStepsPage(
+          viewModel: vm,
+          onExit: () => exited++,
+          onChooseBuilding: ({required bool locationUnavailable}) =>
+              chooseBuildingUnavailable = locationUnavailable,
+          onSearched: (r) => searched = r,
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
   }
 
@@ -97,7 +99,7 @@ void main() {
     await tester.tap(find.text('공간 찾기'));
     await tester.pumpAndSettle();
 
-    expect(searched!.rankedSpaceIds, [1, 2]);
+    expect(searched!.candidates.map((c) => c.spaceId), [1, 2]);
   });
 
   testWidgets('첫 단계에서 뒤로 가면 퍼널을 닫는다', (tester) async {

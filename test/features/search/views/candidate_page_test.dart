@@ -6,25 +6,32 @@ import 'package:team_frontend/features/search/viewmodels/candidate_view_model.da
 import 'package:team_frontend/features/search/views/candidate_page.dart';
 
 import '../../../fakes/fake_search_repository.dart';
+import '../../../fakes/sample_space.dart';
 
 void main() {
-  Future<CandidateViewModel> pumpPage(WidgetTester tester, List<int> ids,
-      {VoidCallback? onEmpty, ValueChanged<int>? onGo}) async {
+  Future<CandidateViewModel> pumpPage(
+    WidgetTester tester,
+    List<int> ids, {
+    ValueChanged<int>? onGo,
+  }) async {
     final vm = CandidateViewModel(
-      repository: FakeSearchRepository(),
-      result: SearchResult(condition: const SearchCondition(), rankedSpaceIds: ids),
-    );
-    await tester.pumpWidget(MaterialApp(
-      home: CandidatePage(
-        viewModel: vm,
+      result: SearchResult(
         condition: const SearchCondition(),
-        onClose: () {},
-        onEditStep: (_) {},
-        onGo: (c) => onGo?.call(c.spaceId),
-        onEmpty: onEmpty ?? () {},
-        onOpenPhoto: (_, _) {},
+        candidates: [for (final id in ids) sampleCandidate(id)],
       ),
-    ));
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CandidatePage(
+          viewModel: vm,
+          condition: const SearchCondition(),
+          onClose: () {},
+          onEditStep: (_) {},
+          onGo: (c) => onGo?.call(c.spaceId),
+          onOpenPhoto: (_, _) {},
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     return vm;
   }
@@ -70,15 +77,17 @@ void main() {
         repository: FakeSearchRepository(missingIds: missingIds),
         spaceId: 7,
       );
-      await tester.pumpWidget(MaterialApp(
-        home: CandidatePage.restored(
-          viewModel: vm,
-          onClose: onClose ?? () {},
-          onGo: (c) => onGo?.call(c.spaceId),
-          onUnavailable: onUnavailable ?? () {},
-          onOpenPhoto: (_, _) {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CandidatePage.restored(
+            viewModel: vm,
+            onClose: onClose ?? () {},
+            onGo: (c) => onGo?.call(c.spaceId),
+            onUnavailable: onUnavailable ?? () {},
+            onOpenPhoto: (_, _) {},
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
     }
 

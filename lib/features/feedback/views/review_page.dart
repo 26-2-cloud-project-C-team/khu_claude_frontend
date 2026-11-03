@@ -50,11 +50,8 @@ class _ReviewPageState extends State<ReviewPage> {
   Future<void> _submit({required bool includeText}) async {
     final ok = await _vm.submit(includeText: includeText);
     if (!mounted) return;
-    if (ok) {
-      widget.onDone();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('잠시 후 다시 시도해주세요')));
-    }
+    // 실패하면 버튼만 다시 켠다. 통신 오류 재시도 안내는 설계(DS-00 ②)에서 뺐다.
+    if (ok) widget.onDone();
   }
 
   void _back() {

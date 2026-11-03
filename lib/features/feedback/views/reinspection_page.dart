@@ -29,13 +29,8 @@ class _ReinspectionPageState extends State<ReinspectionPage> {
   Future<void> _submit() async {
     final ok = await _vm.submit();
     if (!mounted) return;
-    if (ok) {
-      widget.onDone();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('잠시 후 다시 시도해주세요')),
-      );
-    }
+    // 실패하면 버튼만 다시 켠다. 통신 오류 재시도 안내는 설계(DS-00 ②)에서 뺐다.
+    if (ok) widget.onDone();
   }
 
   @override
@@ -45,7 +40,11 @@ class _ReinspectionPageState extends State<ReinspectionPage> {
       listenable: _vm,
       builder: (context, _) => Scaffold(
         appBar: AppBar(
-          leading: IconButton(icon: const Icon(Icons.close), tooltip: '닫기', onPressed: widget.onClose),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: '닫기',
+            onPressed: widget.onClose,
+          ),
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),

@@ -200,7 +200,7 @@ void main() {
 
       final result = await vm.search();
 
-      expect(result!.rankedSpaceIds, [1, 2, 3]);
+      expect(result!.candidates.map((c) => c.spaceId), [1, 2, 3]);
       expect(search.searchCalls.single, vm.condition);
       expect(vm.lastResult, same(result));
       expect(vm.isSearching, isFalse);
@@ -229,7 +229,7 @@ void main() {
       final result = await vm.search();
       final changed = vm.condition.copyWith(headcount: 3);
 
-      vm.adopt(SearchResult(condition: changed, rankedSpaceIds: result!.rankedSpaceIds));
+      vm.adopt(SearchResult(condition: changed, candidates: result!.candidates));
 
       expect(vm.condition.headcount, 3);
     });
