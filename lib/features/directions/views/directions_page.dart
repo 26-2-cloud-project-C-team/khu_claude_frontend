@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/models/building.dart';
 import '../../search/models/candidate.dart';
 import '../models/directions_stage.dart';
 import '../viewmodels/directions_view_model.dart';
 
-/// US-06 지도 길찾기(A) · 건물 도착 내부 안내(B) · 이용 중(C).
+/// US-06 지도 길찾기(A) · 건물 도착 내부 안내(B) · 이용 중(C), 복구 · 출발점 없음(②).
 class DirectionsPage extends StatefulWidget {
   const DirectionsPage({
     super.key,
     required this.viewModel,
+    required this.onChooseOrigin,
     required this.onReview,
     required this.onReinspect,
     required this.onClose,
   });
 
   final DirectionsViewModel viewModel;
+
+  /// 출발 건물 선택(US-03)을 띄우고 고른 건물을 돌려준다. 닫으면 null.
+  /// 복구로 들어와 현재 위치를 못 구했을 때 한 번, ②의 '출발 건물 골라서 길찾기'에서 다시 연다.
+  final Future<Building?> Function() onChooseOrigin;
 
   /// C '이용 의견 남기기' → US-07 A(모달).
   final VoidCallback onReview;
@@ -35,7 +41,16 @@ class _DirectionsPageState extends State<DirectionsPage> {
   @override
   void initState() {
     super.initState();
-    _vm.start();
+    _vm.start().then((_) {
+      // 복구로 들어와 현재 위치도 없으면 US-03을 먼저 띄운다. 닫으면 ②(핀만 있는 지도)에 남는다.
+      if (mounted && _vm.lacksOrigin) _chooseOrigin();
+    });
+  }
+
+  Future<void> _chooseOrigin() async {
+    final building = await widget.onChooseOrigin();
+    if (!mounted || building == null) return;
+    await _vm.chooseOrigin(building);
   }
 
   @override
@@ -51,6 +66,7 @@ class _DirectionsPageState extends State<DirectionsPage> {
             onClose: widget.onClose,
           );
         }
+        final destination = _vm.destination.buildingName;
         return Scaffold(
           appBar: AppBar(
             title: Text(_vm.stage == DirectionsStage.moving ? '길찾기' : '내부 안내'),
@@ -64,15 +80,25 @@ class _DirectionsPageState extends State<DirectionsPage> {
             children: [
               // TODO(A-12): 카카오맵 래퍼로 바꾼다. 현재 위치 = 경희블루 점, 목적지 = 경희레드 핀,
               // 경로 = 경희레드 선. 진입 시 출발점·목적지가 모두 보이게 범위를 맞춘다.
+              // ②(lacksOrigin)는 경로선 · 현재 위치 점 · '현재 위치로' 버튼 없이 목적지 핀과 Tint 건물만,
+              // 목적지 건물이 가운데 오도록 맞춘다.
               Expanded(
                 child: Container(
                   key: const ValueKey('map-placeholder'),
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   alignment: Alignment.center,
-                  child: Text('${_vm.origin.label} → ${_vm.destination.buildingName}'),
+                  child: Text(
+                    _vm.lacksOrigin ? destination : '${_vm.originLabel ?? '현재 위치'} → $destination',
+                  ),
                 ),
               ),
-              _RouteSheet(viewModel: _vm),
+              if (_vm.isResolvingOrigin)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                _RouteSheet(viewModel: _vm, onChooseOrigin: _chooseOrigin),
             ],
           ),
         );
@@ -81,11 +107,12 @@ class _DirectionsPageState extends State<DirectionsPage> {
   }
 }
 
-/// A·B가 함께 쓰는 경로 요약 시트. 단계 라벨 → 제목 → 보조 한 줄 → 목적지 카드 → Primary → 텍스트 버튼.
+/// A·B·②가 함께 쓰는 경로 요약 시트. 단계 라벨 → 제목 → 보조 한 줄 → 목적지 카드 → Primary → 텍스트 버튼.
 class _RouteSheet extends StatelessWidget {
-  const _RouteSheet({required this.viewModel});
+  const _RouteSheet({required this.viewModel, required this.onChooseOrigin});
 
   final DirectionsViewModel viewModel;
+  final VoidCallback onChooseOrigin;
 
   @override
   Widget build(BuildContext context) {
@@ -95,17 +122,22 @@ class _RouteSheet extends StatelessWidget {
     final moving = vm.stage == DirectionsStage.moving;
     final route = vm.route;
 
-    final label = moving ? '1/2 · 이동 중' : '2/2 · 건물 도착';
+    // ②는 경로 단계가 없어 단계 라벨을 '내부 안내'(회색)로, 도착 여부를 몰라 보조 줄은 건물 이름만 둔다.
+    final noOrigin = vm.lacksOrigin;
+    final label = moving ? '1/2 · 이동 중' : (noOrigin ? '내부 안내' : '2/2 · 건물 도착');
+    final labelColor = moving
+        ? theme.colorScheme.primary
+        : (noOrigin ? theme.colorScheme.onSurfaceVariant : Colors.green.shade700);
     final title = moving
         ? (vm.isApproaching
-            ? '곧 도착해요'
-            : '${d.buildingName}까지 도보 ${route?.minutes ?? d.walkMinutes}분')
+              ? '곧 도착해요'
+              : '${d.buildingName}까지 도보 ${route?.minutes ?? d.walkMinutes}분')
         : '${d.floor}으로 올라가세요';
     final sub = moving
         ? (route == null
-            ? null
-            : '${route.isFallback ? '직선' : '걷는 길'} ${route.distanceMeters.round()}m')
-        : '${d.buildingName}에 도착했어요';
+              ? null
+              : '${route.isFallback ? '직선' : '걷는 길'} ${route.distanceMeters.round()}m')
+        : (noOrigin ? d.buildingName : '${d.buildingName}에 도착했어요');
 
     return Material(
       elevation: 8,
@@ -119,12 +151,7 @@ class _RouteSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                label,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: moving ? theme.colorScheme.primary : Colors.green.shade700,
-                ),
-              ),
+              Text(label, style: theme.textTheme.labelLarge?.copyWith(color: labelColor)),
               const SizedBox(height: 4),
               Text(title, style: theme.textTheme.titleLarge),
               if (sub != null) ...[
@@ -140,7 +167,10 @@ class _RouteSheet extends StatelessWidget {
                 onPressed: moving ? vm.arriveAtBuilding : vm.startUsing,
                 child: Text(moving ? '건물에 도착했어요' : '공간에 도착했어요'),
               ),
-              TextButton(onPressed: vm.startUsing, child: const Text('길 안내 없이 바로 이용하기')),
+              // ②에는 길 안내가 이미 없으므로 '길 안내 없이' 대신 길 안내를 되찾는 길을 둔다.
+              noOrigin
+                  ? TextButton(onPressed: onChooseOrigin, child: const Text('출발 건물 골라서 길찾기'))
+                  : TextButton(onPressed: vm.startUsing, child: const Text('길 안내 없이 바로 이용하기')),
             ],
           ),
         ),
@@ -312,8 +342,7 @@ class _InUseView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Text('닫으면 처음 화면으로 돌아가요',
-              textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+          Text('닫으면 처음 화면으로 돌아가요', textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
         ],
       ),
     );

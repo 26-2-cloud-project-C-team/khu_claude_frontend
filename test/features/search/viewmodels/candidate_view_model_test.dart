@@ -104,4 +104,40 @@ void main() {
     expect(vm.rank, 1);
     expect(repo.detailCalls, hasLength(1));
   });
+
+  group('복구 상태(US-04 ③)', () {
+    test('공간 하나만 U3로 한 번 불러 보여준다', () async {
+      final vm = CandidateViewModel.restored(repository: repo, spaceId: 7);
+
+      await vm.load();
+
+      expect(vm.isRestored, isTrue);
+      expect(repo.detailCalls, [
+        [7],
+      ]);
+      expect(vm.current!.spaceId, 7);
+      expect(vm.hasPrevious, isFalse);
+      expect(vm.hasNext, isFalse);
+      expect(vm.isUnavailable, isFalse);
+    });
+
+    test('U3가 공간을 돌려주지 않으면 볼 수 없는 공간이다', () async {
+      repo.missingIds = {7};
+      final vm = CandidateViewModel.restored(repository: repo, spaceId: 7);
+
+      await vm.load();
+
+      expect(vm.isUnavailable, isTrue);
+    });
+
+    test('검색 결과에서 후보가 모두 사라진 것은 볼 수 없는 공간이 아니다', () async {
+      repo.missingIds = {1};
+      final vm = CandidateViewModel(repository: repo, result: _result([1]));
+
+      await vm.load();
+
+      expect(vm.isEmpty, isTrue);
+      expect(vm.isUnavailable, isFalse);
+    });
+  });
 }

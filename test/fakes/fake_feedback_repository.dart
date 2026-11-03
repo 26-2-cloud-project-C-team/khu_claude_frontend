@@ -1,5 +1,6 @@
 import 'package:team_frontend/features/feedback/data/feedback_repository.dart';
 import 'package:team_frontend/features/feedback/models/reinspection_category.dart';
+import 'package:team_frontend/features/feedback/models/today_review.dart';
 
 class SubmittedReview {
   SubmittedReview(this.spaceId, this.rating, this.text);
@@ -16,15 +17,15 @@ class SubmittedReinspection {
 }
 
 class FakeFeedbackRepository implements FeedbackRepository {
-  FakeFeedbackRepository({this.todayRating, this.fail = false});
+  FakeFeedbackRepository({this.todayReview, this.fail = false});
 
-  int? todayRating;
+  TodayReview? todayReview;
   bool fail;
   final List<SubmittedReview> reviews = [];
   final List<SubmittedReinspection> reinspections = [];
 
   @override
-  Future<int?> fetchTodayRating(int spaceId) async => todayRating;
+  Future<TodayReview?> fetchTodayReview(int spaceId) async => todayReview;
 
   @override
   Future<void> submitReview({required int spaceId, required int rating, String? text}) async {

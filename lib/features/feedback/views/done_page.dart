@@ -43,7 +43,7 @@ class DonePage extends StatelessWidget {
                           color: Color(0xFFE6F4EE),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.check_rounded, size: 40, color: Color(0xFF0E8A5F)),
+                        child: const DrawnCheck(color: Color(0xFF0E8A5F)),
                       ),
                       const SizedBox(height: 24),
                       Text(kind.title, style: theme.textTheme.headlineSmall),
@@ -65,4 +65,58 @@ class DonePage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 진입할 때 한 번 그려지는 체크. 축하 효과는 두지 않는다.
+/// '동작 줄이기' 설정이면 처음부터 다 그린 상태로 보인다.
+class DrawnCheck extends StatelessWidget {
+  const DrawnCheck({
+    super.key,
+    required this.color,
+    this.duration = const Duration(milliseconds: 400),
+  });
+
+  final Color color;
+  final Duration duration;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: reduceMotion ? 1 : 0, end: 1),
+      duration: reduceMotion ? Duration.zero : duration,
+      curve: Curves.easeOut,
+      builder: (context, progress, _) => CustomPaint(
+        painter: _CheckPainter(color: color, progress: progress),
+      ),
+    );
+  }
+}
+
+class _CheckPainter extends CustomPainter {
+  _CheckPainter({required this.color, required this.progress});
+
+  final Color color;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    final path = Path()
+      ..moveTo(size.width / 2 - s * 0.2, size.height / 2)
+      ..lineTo(size.width / 2 - s * 0.05, size.height / 2 + s * 0.15)
+      ..lineTo(size.width / 2 + s * 0.22, size.height / 2 - s * 0.13);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.07
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (final metric in path.computeMetrics()) {
+      canvas.drawPath(metric.extractPath(0, metric.length * progress), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CheckPainter old) => old.progress != progress || old.color != color;
 }

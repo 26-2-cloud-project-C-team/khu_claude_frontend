@@ -11,15 +11,23 @@ import '../models/search_result.dart';
 /// 현재 순위와 다음 미리보기 카드를 보여줄 수 있도록, 받지 않은 공간이 있으면
 /// [batchSize]개씩 묶어 U3로 미리 받는다. U3가 missingIds로 돌려준 공간은 순위에서 뺀다.
 class CandidateViewModel extends ChangeNotifier {
-  CandidateViewModel({
-    required this._repository,
-    required SearchResult result,
-    this.batchSize = 3,
-  }) : _ids = [...result.rankedSpaceIds];
+  CandidateViewModel({required this._repository, required SearchResult result, this.batchSize = 3})
+    : _ids = [...result.rankedSpaceIds],
+      isRestored = false;
+
+  /// US-04 ③ 복구 상태. 공유 링크 · 앱 다시 열기 · 검색 결과 없이 US-06에서 돌아왔을 때
+  /// 검색 결과 없이 공간 하나만 U3로 한 번 불러 보여준다.
+  CandidateViewModel.restored({required this._repository, required int spaceId})
+    : _ids = [spaceId],
+      batchSize = 1,
+      isRestored = true;
 
   final SearchRepository _repository;
   final int batchSize;
   final List<int> _ids;
+
+  /// 검색 결과 없이 공간 하나만 복구했는지. View는 순위 · 조건 · 거리 · 다음 후보를 숨긴다.
+  final bool isRestored;
   final Map<int, CandidateDetail> _details = {};
 
   int _index = 0;
@@ -38,7 +46,11 @@ class CandidateViewModel extends ChangeNotifier {
   bool get isLast => _ids.isNotEmpty && !hasNext;
 
   /// 받아 둔 공간이 모두 사라졌을 때. View는 US-05로 보낸다.
+  /// 복구 상태에서는 U3가 404(비공개 · 삭제)를 준 것이라 [isUnavailable]이 된다.
   bool get isEmpty => _ids.isEmpty;
+
+  /// 복구하려던 공간을 볼 수 없다. View는 US-00으로 보내며 토스트를 띄운다.
+  bool get isUnavailable => isRestored && isEmpty;
 
   CandidateDetail? get current => isEmpty ? null : _details[_ids[_index]];
   CandidateDetail? get nextPreview => hasNext ? _details[_ids[_index + 1]] : null;

@@ -5,35 +5,55 @@ import '../models/search_condition.dart';
 import '../viewmodels/candidate_view_model.dart';
 import 'widgets/condition_sheet.dart';
 
+/// 복구하려던 공간이 비공개 · 삭제됐을 때(U3 404) US-00에서 띄우는 토스트(DS-00 ②).
+const spaceUnavailableMessage = '지금은 볼 수 없는 공간이에요';
+
 /// US-04 후보 상세. 순위대로 한 곳씩 보여주고 좌우로 넘긴다.
 class CandidatePage extends StatefulWidget {
   const CandidatePage({
     super.key,
     required this.viewModel,
-    required this.condition,
+    required SearchCondition this.condition,
     required this.onClose,
-    required this.onEditStep,
+    required ValueChanged<SearchStep> this.onEditStep,
     required this.onGo,
-    required this.onEmpty,
+    required VoidCallback this.onEmpty,
     required this.onOpenPhoto,
-  });
+  }) : onUnavailable = null;
+
+  /// US-04 ③ 복구 상태. [CandidateViewModel.restored]를 받는다.
+  /// 순위 · 조건 · 거리 · 다음 후보 미리보기는 검색 결과에서만 나오는 값이라 숨긴다.
+  const CandidatePage.restored({
+    super.key,
+    required this.viewModel,
+    required this.onClose,
+    required this.onGo,
+    required VoidCallback this.onUnavailable,
+    required this.onOpenPhoto,
+  }) : condition = null,
+       onEditStep = null,
+       onEmpty = null;
 
   final CandidateViewModel viewModel;
 
-  /// 조건 시트에 보여줄 이번 검색 조건.
-  final SearchCondition condition;
+  /// 조건 시트에 보여줄 이번 검색 조건. 복구 상태에서는 null.
+  final SearchCondition? condition;
 
-  /// ×: 검색 결과를 닫고 US-00으로.
+  /// ×: 검색 결과를 닫고 US-00으로. 복구 상태의 '처음부터 다시 찾기'와 좌우 스와이프도 같다.
   final VoidCallback onClose;
 
   /// 조건 시트에서 항목을 골랐다. 그 단계로 돌아가 다시 찾는다.
-  final ValueChanged<SearchStep> onEditStep;
+  final ValueChanged<SearchStep>? onEditStep;
 
   /// '여기로 갈게요': 이 후보로 길찾기(US-06) 시작.
+  /// 복구 상태에서는 출발점이 없으므로 US-06이 현재 위치 → US-03 순으로 다시 구한다.
   final ValueChanged<CandidateDetail> onGo;
 
   /// 받아 둔 후보가 모두 사라졌다. US-05로.
-  final VoidCallback onEmpty;
+  final VoidCallback? onEmpty;
+
+  /// 복구하려던 공간을 볼 수 없다(U3 404). US-00으로 보내며 [spaceUnavailableMessage] 토스트.
+  final VoidCallback? onUnavailable;
 
   /// 사진 크게 보기(A-11).
   final void Function(CandidateDetail candidate, int index) onOpenPhoto;
@@ -63,8 +83,12 @@ class _CandidatePageState extends State<CandidatePage> {
   }
 
   void _onChanged() {
+    if (_vm.isUnavailable) {
+      widget.onUnavailable?.call();
+      return;
+    }
     if (_vm.isEmpty) {
-      widget.onEmpty();
+      widget.onEmpty?.call();
       return;
     }
     // 다른 순위로 넘기면 스크롤은 맨 위에서 다시 시작한다.
@@ -75,8 +99,23 @@ class _CandidatePageState extends State<CandidatePage> {
   }
 
   Future<void> _openConditions() async {
-    final step = await showConditionSheet(context, widget.condition);
-    if (step != null) widget.onEditStep(step);
+    final condition = widget.condition;
+    if (condition == null) return;
+    final step = await showConditionSheet(context, condition);
+    if (step != null) widget.onEditStep?.call(step);
+  }
+
+  void _onSwipe(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    if (v.abs() <= 200) return;
+    // 복구 상태에는 이전 · 다음 후보가 없어 좌우 스와이프도 닫기와 같다.
+    if (_vm.isRestored) {
+      widget.onClose();
+    } else if (v < 0) {
+      _vm.next();
+    } else {
+      _vm.previous();
+    }
   }
 
   @override
@@ -85,6 +124,7 @@ class _CandidatePageState extends State<CandidatePage> {
       listenable: _vm,
       builder: (context, _) {
         final current = _vm.current;
+        final restored = _vm.isRestored;
         return Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -93,37 +133,39 @@ class _CandidatePageState extends State<CandidatePage> {
               onPressed: widget.onClose,
             ),
             centerTitle: true,
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  tooltip: '이전 후보',
-                  onPressed: _vm.hasPrevious ? _vm.previous : null,
-                ),
-                Text('${_vm.rank}위'),
-                Text(' / ${_vm.total}곳', style: Theme.of(context).textTheme.bodyMedium),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  tooltip: '다음 후보',
-                  onPressed: _vm.hasNext ? _vm.next : null,
-                ),
-              ],
-            ),
-            actions: [TextButton(onPressed: _openConditions, child: const Text('조건'))],
+            title: restored
+                ? null
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        tooltip: '이전 후보',
+                        onPressed: _vm.hasPrevious ? _vm.previous : null,
+                      ),
+                      Text('${_vm.rank}위'),
+                      Text(' / ${_vm.total}곳', style: Theme.of(context).textTheme.bodyMedium),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        tooltip: '다음 후보',
+                        onPressed: _vm.hasNext ? _vm.next : null,
+                      ),
+                    ],
+                  ),
+            actions: restored
+                ? null
+                : [TextButton(onPressed: _openConditions, child: const Text('조건'))],
           ),
           body: current == null
               ? _LoadingOrError(viewModel: _vm)
               : GestureDetector(
-                  onHorizontalDragEnd: (d) {
-                    final v = d.primaryVelocity ?? 0;
-                    if (v < -200) _vm.next();
-                    if (v > 200) _vm.previous();
-                  },
+                  onHorizontalDragEnd: _onSwipe,
                   child: _CandidateBody(
                     candidate: current,
+                    restored: restored,
                     controller: _scroll,
                     onOpenPhoto: (i) => widget.onOpenPhoto(current, i),
+                    onRestart: widget.onClose,
                   ),
                 ),
           bottomNavigationBar: current == null
@@ -139,6 +181,50 @@ class _CandidatePageState extends State<CandidatePage> {
   }
 }
 
+/// US-04 ③ 상단 바 아래 · 사진 위의 안내 띠. 복구 상태에서만 보인다.
+class _RestoredBanner extends StatelessWidget {
+  const _RestoredBanner({required this.onRestart});
+
+  /// '처음부터 다시 찾기' → US-00.
+  final VoidCallback onRestart;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('검색 조건이 사라져서 공간 정보만 보여 드려요', style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 4),
+          InkWell(
+            onTap: onRestart,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '처음부터 다시 찾기',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, size: 18, color: theme.colorScheme.primary),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LoadingOrError extends StatelessWidget {
   const _LoadingOrError({required this.viewModel});
 
@@ -146,6 +232,8 @@ class _LoadingOrError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 후보가 모두 사라졌거나 복구할 공간을 볼 수 없으면 곧 다른 화면으로 넘어가므로 비워 둔다.
+    if (viewModel.isEmpty) return const SizedBox.shrink();
     if (viewModel.error == null) return const Center(child: CircularProgressIndicator());
     return Center(
       child: TextButton(onPressed: viewModel.retry, child: const Text('다시 불러오기')),
@@ -156,13 +244,19 @@ class _LoadingOrError extends StatelessWidget {
 class _CandidateBody extends StatelessWidget {
   const _CandidateBody({
     required this.candidate,
+    required this.restored,
     required this.controller,
     required this.onOpenPhoto,
+    required this.onRestart,
   });
 
   final CandidateDetail candidate;
+
+  /// 복구 상태면 안내 띠를 두고, 출발점이 없어 도보 시간 · 직선거리는 뺀다.
+  final bool restored;
   final ScrollController controller;
   final ValueChanged<int> onOpenPhoto;
+  final VoidCallback onRestart;
 
   @override
   Widget build(BuildContext context) {
@@ -172,6 +266,7 @@ class _CandidateBody extends StatelessWidget {
     return ListView(
       controller: controller,
       children: [
+        if (restored) _RestoredBanner(onRestart: onRestart),
         _PhotoHeader(candidate: c, onTap: () => onOpenPhoto(0)),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -181,7 +276,9 @@ class _CandidateBody extends StatelessWidget {
               Text(c.name, style: theme.textTheme.titleLarge),
               const SizedBox(height: 4),
               Text(
-                '${c.buildingName} · 도보 ${c.walkMinutes}분 · 직선 ${c.distanceMeters.round()}m',
+                restored
+                    ? c.buildingName
+                    : '${c.buildingName} · 도보 ${c.walkMinutes}분 · 직선 ${c.distanceMeters.round()}m',
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
@@ -215,9 +312,13 @@ class _CandidateBody extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _ProsConsCard(title: '좋아요', text: c.pros ?? '-')),
+                    Expanded(
+                      child: _ProsConsCard(title: '좋아요', text: c.pros ?? '-'),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _ProsConsCard(title: '아쉬워요', text: c.cons ?? '-')),
+                    Expanded(
+                      child: _ProsConsCard(title: '아쉬워요', text: c.cons ?? '-'),
+                    ),
                   ],
                 ),
               ],
@@ -252,8 +353,10 @@ class _CandidateBody extends StatelessWidget {
             Text(_ratingText(c), style: theme.textTheme.titleMedium),
             for (final r in c.recentReviews) ...[
               const SizedBox(height: 16),
-              Text('${'★' * r.rating}${'☆' * (5 - r.rating)} · ${formatDate(r.createdAt)}',
-                  style: theme.textTheme.bodySmall),
+              Text(
+                '${'★' * r.rating}${'☆' * (5 - r.rating)} · ${formatDate(r.createdAt)}',
+                style: theme.textTheme.bodySmall,
+              ),
               const SizedBox(height: 4),
               Text(r.text ?? '별점만 남겼어요', style: theme.textTheme.bodyMedium),
             ],
@@ -307,11 +410,7 @@ class _PhotoHeader extends StatelessWidget {
               ),
             ),
           if (photos.isNotEmpty)
-            Positioned(
-              right: 12,
-              bottom: 12,
-              child: Chip(label: Text('1 / ${photos.length}')),
-            ),
+            Positioned(right: 12, bottom: 12, child: Chip(label: Text('1 / ${photos.length}'))),
         ],
       ),
     );
@@ -332,7 +431,9 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(width: 80, child: Text(label, style: theme.textTheme.bodySmall)),
-          Expanded(child: Text(value, textAlign: TextAlign.right, style: theme.textTheme.bodyLarge)),
+          Expanded(
+            child: Text(value, textAlign: TextAlign.right, style: theme.textTheme.bodyLarge),
+          ),
         ],
       ),
     );
@@ -418,26 +519,34 @@ class _BottomArea extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: viewModel.isLast
-                  ? ListTile(
-                      title: const Text('마지막 후보예요'),
-                      subtitle: const Text('조건 바꿔서 다시 찾기'),
-                      trailing: const Icon(Icons.tune),
-                      onTap: onChangeConditions,
-                    )
-                  : ListTile(
-                      title: Text('다음 후보 · ${viewModel.rank + 1}위', style: theme.textTheme.bodySmall),
-                      subtitle: Text(
-                        preview == null ? '불러오는 중' : '${preview.name} · 도보 ${preview.walkMinutes}분',
+            // 복구 상태에는 다음 후보가 없어 '여기로 갈게요' 하나만 둔다.
+            if (!viewModel.isRestored) ...[
+              Card(
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: viewModel.isLast
+                    ? ListTile(
+                        title: const Text('마지막 후보예요'),
+                        subtitle: const Text('조건 바꿔서 다시 찾기'),
+                        trailing: const Icon(Icons.tune),
+                        onTap: onChangeConditions,
+                      )
+                    : ListTile(
+                        title: Text(
+                          '다음 후보 · ${viewModel.rank + 1}위',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        subtitle: Text(
+                          preview == null
+                              ? '불러오는 중'
+                              : '${preview.name} · 도보 ${preview.walkMinutes}분',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: viewModel.next,
                       ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: viewModel.next,
-                    ),
-            ),
-            const SizedBox(height: 12),
+              ),
+              const SizedBox(height: 12),
+            ],
             FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
               onPressed: onGo,

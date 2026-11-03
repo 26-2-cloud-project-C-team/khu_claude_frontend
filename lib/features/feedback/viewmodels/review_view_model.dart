@@ -21,6 +21,7 @@ class ReviewViewModel extends ChangeNotifier {
   ReviewStep _step = ReviewStep.rating;
   int? _rating;
   String _text = '';
+  bool _hasSavedText = false;
   bool _isSubmitting = false;
   Object? _error;
 
@@ -30,6 +31,9 @@ class ReviewViewModel extends ChangeNotifier {
   bool get isSubmitting => _isSubmitting;
   Object? get error => _error;
 
+  /// '후기 없이 별점만 등록'을 보여줄지. 오늘 남긴 후기가 있으면 모르게 지워지지 않도록 숨긴다.
+  bool get canSubmitRatingOnly => !_hasSavedText;
+
   /// '4점 · 만족해요'의 문구 부분.
   String? get ratingLabel => _rating == null ? null : rating_rules.ratingLabel(_rating!);
 
@@ -37,14 +41,17 @@ class ReviewViewModel extends ChangeNotifier {
   int get textLength => _text.length;
   bool get isTextValid => _text.length <= rating_rules.reviewMaxLength;
 
-  /// 오늘 남긴 별점이 있으면 채운 상태로 연다. 실패해도 빈 상태로 진행한다.
+  /// 오늘 남긴 별점·후기가 있으면 채운 상태로 연다. 실패해도 빈 상태로 진행한다.
   Future<void> load() async {
     try {
-      final today = await _repository.fetchTodayRating(spaceId);
-      if (today != null && _rating == null) {
-        _rating = today;
-        notifyListeners();
+      final today = await _repository.fetchTodayReview(spaceId);
+      if (today == null) return;
+      _rating ??= today.rating;
+      if (today.hasText) {
+        _hasSavedText = true;
+        if (_text.isEmpty) _text = today.text!;
       }
+      notifyListeners();
     } on Exception {
       // 미리 채우기는 보조 기능이라 무시한다.
     }
@@ -79,6 +86,7 @@ class ReviewViewModel extends ChangeNotifier {
   Future<bool> submit({required bool includeText}) async {
     final value = _rating;
     if (value == null || _isSubmitting) return false;
+    if (!includeText && !canSubmitRatingOnly) return false;
     final trimmed = _text.trim();
     if (includeText && !isTextValid) return false;
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:team_frontend/core/location/location_repository.dart';
+import 'package:team_frontend/core/models/building.dart';
 import 'package:team_frontend/features/directions/models/walking_route.dart';
 import 'package:team_frontend/features/directions/viewmodels/directions_view_model.dart';
 import 'package:team_frontend/features/directions/views/directions_page.dart';
@@ -24,6 +26,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: DirectionsPage(
         viewModel: vm,
+        onChooseOrigin: () async => null,
         onReview: () => reviews++,
         onReinspect: () {},
         onClose: () {},
@@ -43,5 +46,42 @@ void main() {
     await tester.tap(find.text('이용 의견 남기기'));
 
     expect(reviews, 1);
+  });
+
+  testWidgets('복구 · 출발점 없음이면 US-03을 먼저 띄우고, 닫으면 핀만 있는 내부 안내에 남는다',
+      (tester) async {
+    final vm = DirectionsViewModel(
+      directionsRepository: FakeDirectionsRepository(
+        route: const WalkingRoute(path: [], distanceMeters: 450, minutes: 6),
+      ),
+      locationRepository: FakeLocationRepository(permission: LocationPermissionStatus.denied),
+      destination: sampleCandidate(1),
+    );
+    addTearDown(vm.dispose);
+    final picks = <Building?>[null, engineering];
+    var asked = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: DirectionsPage(
+        viewModel: vm,
+        onChooseOrigin: () async => picks[asked++],
+        onReview: () {},
+        onReinspect: () {},
+        onClose: () {},
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(asked, 1);
+    expect(find.text('내부 안내'), findsNWidgets(2));
+    expect(find.text('2/2 · 건물 도착'), findsNothing);
+    expect(find.text('4층으로 올라가세요'), findsOneWidget);
+    expect(find.text('길 안내 없이 바로 이용하기'), findsNothing);
+
+    await tester.tap(find.text('출발 건물 골라서 길찾기'));
+    await tester.pumpAndSettle();
+
+    expect(asked, 2);
+    expect(find.text('1/2 · 이동 중'), findsOneWidget);
+    expect(find.text('걷는 길 450m'), findsOneWidget);
   });
 }

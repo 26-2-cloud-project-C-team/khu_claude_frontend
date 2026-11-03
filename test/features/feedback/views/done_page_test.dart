@@ -14,4 +14,18 @@ void main() {
 
     expect(confirmed, 1);
   });
+
+  testWidgets('시스템 뒤로가기도 확인과 같다', (tester) async {
+    var confirmed = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: DonePage(kind: DoneKind.review, onConfirm: () => confirmed++),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(confirmed, 1);
+    expect(find.text('후기를 남겨주셔서 감사해요'), findsOneWidget);
+  });
 }

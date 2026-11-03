@@ -45,8 +45,9 @@ lib/
 | `SearchStepsPage` (US-01·02) | `SearchFlowViewModel` | `onChooseBuilding(locationUnavailable)` → US-03 push · `onSearched(result)` → 비면 US-05, 아니면 US-04 · `onExit` → 조건 시트에서 왔으면 pop, 아니면 US-00 |
 | `BuildingSelectPage` (US-03) | `SearchFlowViewModel` | `onSelected` · `onLocated` → pop(검색 조건으로) · `onBack` → 위치 없음 상태면 US-00, 아니면 pop |
 | `CandidatePage` (US-04) | `CandidateViewModel(result)` | `onEditStep(step)` → `flow.editFromSheet(step)` 후 검색 조건 · `onGo(candidate)` → US-06 · `onEmpty` → US-05 · `onClose` → `flow.reset()` 후 US-00 · `onOpenPhoto` → A-11 |
+| `CandidatePage.restored` (US-04 ③) | `CandidateViewModel.restored(spaceId)` | 공유 링크 · 앱 다시 열기 · 검색 결과 없이 US-06에서 돌아왔을 때. `onGo(candidate)` → US-06(출발점 없이) · `onClose`(닫기 · 스와이프 · '처음부터 다시 찾기') → US-00 · `onUnavailable` → US-00으로 보내며 `spaceUnavailableMessage` 토스트 |
 | `NoResultPage` (US-05) | `NoResultViewModel(condition)` | `onAdopt(result)` → `flow.adopt(result)` 후 US-04 · `onRestart` → `flow.reset()` 후 US-00 |
-| `DirectionsPage` (US-06) | `DirectionsViewModel(origin, destination)` | `onReview` → US-07 A 모달 · `onReinspect` → US-07 C 모달 · `onClose` → `flow.reset()` 후 US-00 |
+| `DirectionsPage` (US-06) | `DirectionsViewModel(origin, destination)` | `onChooseOrigin` → US-03을 띄우고 고른 건물(닫으면 null)을 돌려줌 · `onReview` → US-07 A 모달 · `onReinspect` → US-07 C 모달 · `onClose` → `flow.reset()` 후 US-00. 복구로 들어오면 `origin`을 null로 넘긴다. 현재 위치 → US-03 순으로 다시 구하고, 그래도 없으면 ②(핀만 있는 지도 + 내부 안내). ②에서 뒤로가기는 US-04 ③ |
 | `ReviewPage` · `ReinspectionPage` (US-07) | 열 때마다 새로 생성 | `onDone` → US-08 · `onClose` → 모달 닫기 |
 | `DonePage` (US-08) | — | `onConfirm` → `flow.reset()` 후 US-00 |
 
@@ -78,4 +79,8 @@ lib/
 2. U2가 결과 0곳일 때 대안을 함께 주는지. 지금은 `NoResultViewModel`이 대안마다 U2를 다시 불러 후보 수를 센다.
 3. `tasks/README.md`에서 US-06 C · US-07이 C(관리자·의견) 목록에 있다. 사용자 화면이라 이쪽에서 맡는 것으로 정리할지 확인한다.
 4. `PhotoTag.HALLWAY` 표시 문구('가는 길' / '복도'), `ReinspectionCategory.ENTRY` 표시 문구('출입 규칙' / '출입 · 취식 규칙').
+5. `ReinspectionCategory`는 설계서 US-07 C의 6개 칩(이용 시간 · 분위기 / 테이블 · 시설 / 위치 · 사진 / 출입 · 취식 규칙 / 폐쇄 · 이전 / 기타)에 맞췄다. `LOCATION` 코드값은 임시다.
+6. US-07 B 복원(`FeedbackRepository.fetchTodayReview`)이 별점과 함께 후기 본문도 돌려주는지. 후기가 있으면 '후기 없이 별점만 등록'을 숨긴다.
+7. DS-00 ②는 통신 오류 재시도를 설계에서 뺐고 토스트도 5개뿐이다. US-01·02 검색, US-07 등록 실패 때 띄우는 '잠시 후 다시 시도해주세요'를 남길지 정한다.
+8. 설계서 US-04는 검색 때 전체 후보를 한 번에 받아 두고 이전 · 다음에 추가 요청을 하지 않는다. 지금은 U3를 3개씩 미리 받는다. U2 응답에 상세가 들어오는지 API 명세(Ready)로 확인한다.
 5. `ReinspectionCategory`는 관리자 AD-04도 쓰므로 `core/`로 옮길지 관리자 담당과 정한다.

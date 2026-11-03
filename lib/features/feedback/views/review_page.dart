@@ -35,7 +35,10 @@ class _ReviewPageState extends State<ReviewPage> {
   void initState() {
     super.initState();
     _text = TextEditingController(text: _vm.text);
-    _vm.load();
+    _vm.load().then((_) {
+      // 오늘 남긴 후기를 복원했으면 입력칸에도 채운다.
+      if (mounted && _text.text.isEmpty) _text.text = _vm.text;
+    });
   }
 
   @override
@@ -50,9 +53,7 @@ class _ReviewPageState extends State<ReviewPage> {
     if (ok) {
       widget.onDone();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('잠시 후 다시 시도해주세요')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('잠시 후 다시 시도해주세요')));
     }
   }
 
@@ -79,7 +80,11 @@ class _ReviewPageState extends State<ReviewPage> {
             appBar: AppBar(
               leading: onText
                   ? IconButton(icon: const Icon(Icons.arrow_back), tooltip: '뒤로', onPressed: _back)
-                  : IconButton(icon: const Icon(Icons.close), tooltip: '닫기', onPressed: widget.onClose),
+                  : IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: '닫기',
+                      onPressed: widget.onClose,
+                    ),
             ),
             body: onText ? _textBody(context) : _ratingBody(context),
             bottomNavigationBar: SafeArea(
@@ -97,10 +102,13 @@ class _ReviewPageState extends State<ReviewPage> {
                                 : () => _submit(includeText: true),
                             child: const Text('등록하기'),
                           ),
-                          TextButton(
-                            onPressed: _vm.isSubmitting ? null : () => _submit(includeText: false),
-                            child: const Text('후기 없이 별점만 등록'),
-                          ),
+                          if (_vm.canSubmitRatingOnly)
+                            TextButton(
+                              onPressed: _vm.isSubmitting
+                                  ? null
+                                  : () => _submit(includeText: false),
+                              child: const Text('후기 없이 별점만 등록'),
+                            ),
                         ]
                       : [
                           FilledButton(
@@ -146,8 +154,11 @@ class _ReviewPageState extends State<ReviewPage> {
         ),
         const SizedBox(height: 12),
         if (_vm.rating != null)
-          Text('${_vm.rating}점 · ${_vm.ratingLabel}',
-              textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+          Text(
+            '${_vm.rating}점 · ${_vm.ratingLabel}',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium,
+          ),
       ],
     );
   }
