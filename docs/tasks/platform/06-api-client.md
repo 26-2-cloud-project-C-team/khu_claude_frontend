@@ -1,4 +1,4 @@
-# 06 API Client와 RFC 9457 에러 파싱
+# 06 API Client와 에러 응답 파싱
 
 ## 목표
 
@@ -6,21 +6,32 @@ B·C의 Repository 구현체가 쓰는 HTTP 클라이언트와 공통 예외를 
 
 ## 할 일
 
-- [ ] Base URL: 웹과 API가 같은 도메인이므로 현재 origin 기준으로 `/api/v1/…`를 호출한다
-- [ ] 로컬 개발에서 같은 도메인을 맞추는 방법 결정(개발 서버 프록시 등). 세션 쿠키(`sid`, `asid`)가 HttpOnly라 다른 origin으로는 붙지 않는다
+- [ ] Base URL: 운영에서는 웹과 API를 같은 origin에서 서비스하므로(Caddy가 `/api/…`만 API 서버로 프록시) 현재 origin 기준으로 `/api/…`를 호출한다. 관리자 API는 `/api/admin/…`이다
+- [ ] API 버전은 URL이 아니라 `API-Version` 요청 헤더로 지정한다. 생략하면 기본값 `1`이 적용되므로 명시할지 생략할지 정한다. 지원하지 않는 버전은 400 `COMMON_INVALID_API_VERSION`이다
+- [ ] 로컬 개발 환경 구성: 개발 서버 프록시로 `/api/…`를 API 서버에 넘겨 운영과 같은 origin 구조를 맞춘다. 세션 쿠키(`khu_sid`, `khu_admin_sid`)가 HttpOnly라 다른 origin으로 호출하면 붙지 않는다
 - [ ] JSON 요청·응답 처리(`Content-Type: application/json`)
-- [ ] `application/problem+json` 파싱 → 공통 예외(`AppException`)
-  - `type` URI 끝의 slug로 구분한다. 화면에 `detail`을 그대로 띄우지 않는다
-  - 확장 멤버 `errors[]`(`pointer` / `parameter`), `account`(`not-in-admin-list`)
-  - `type`이 없으면(`about:blank`) 상태 코드로 구분
-  - 5xx는 본문과 상관없이 상태 코드로 처리한다. `502`·`504`는 problem+json이 아닐 수 있다
-  - `429`·`503`의 `Retry-After` 헤더
+- [ ] 에러 응답 파싱 → 공통 예외(`AppException`)
+  - 형식은 `{ "error": { "code", "message", "details" } }`이다
+  - 세부 분기는 HTTP 상태 코드가 아니라 `error.code`(`{도메인}_{사유}`, 도메인은 `COMMON`·`AUTH`·`ADMIN`·`SPACE`·`BUILDING`·`REINSPECTION`)로 한다. 화면에 `message`를 그대로 띄우지 않는다
+  - 필드 오류는 `error.details.fields[]`의 `field`, `reason`
+  - 5xx는 본문과 상관없이 상태 코드로 처리한다. `502`·`504`는 본문이 에러 스키마가 아닐 수 있다
+  - `429`·`503`의 `Retry-After` 헤더. `429`는 U5·U6의 요청 제한(세션 분당 10회, IP 분당 60회)을 넘었을 때 `COMMON_RATE_LIMITED`로 온다
 - [ ] 관리자 API의 `401`을 C가 받아 AD-01로 보낼 수 있도록 알림 지점 제공
+- [ ] `lib/app/dependencies.dart`: API Client 생성과 `provider` 연결. Repository 구현체는 B·C가 여기에 추가한다(09에서 옮겨 옴)
+
+## 응답 처리 규칙
+
+Repository 구현체가 응답을 모델로 바꿀 때 지킨다.
+
+- 값이 없는 필드는 생략되지 않고 `null`로 온다. 필드가 있는지가 아니라 값이 `null`인지로 판단한다
+- 모르는 응답 필드는 무시한다. 역직렬화가 실패하면 안 된다
+- 사용자 익명 세션 쿠키는 U4·U5·U6에 처음 접근할 때 발급된다. U1·U2·U3·U7은 세션을 쓰지 않는다
+- 요청 본문 크기 제한: JSON 1MB, 사진 10MB. 넘으면 413 `COMMON_PAYLOAD_TOO_LARGE`다. 요청 전에 클라이언트에서 먼저 검사해도 되지만 최종 검증은 서버가 한다
 
 ## 완료 조건
 
-- 정상 응답, problem+json, `about:blank`, problem+json이 아닌 5xx에 대한 Unit Test가 있다
+- 정상 응답, 에러 스키마 응답(`error.code`·필드 오류), 에러 스키마가 아닌 5xx, `Retry-After`에 대한 Unit Test가 있다
 
 ## 참고
 
-- API 명세 1.1 공통 규칙, 1.2 에러 응답 형식, 1.3 상태 코드 사용 원칙, 7장 에러 유형
+- API 명세 C1 공통 규칙, C2 에러 코드(전체 에러 코드와 상태 코드 매핑), C3 화면별 API 호출
