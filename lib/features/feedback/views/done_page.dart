@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_screen_parts.dart';
+
 enum DoneKind {
   review('후기를 남겨주셔서 감사해요'),
   reinspection('요청을 보냈어요');
@@ -20,7 +25,6 @@ class DonePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -28,6 +32,7 @@ class DonePage extends StatelessWidget {
       },
       child: Scaffold(
         body: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               Expanded(
@@ -35,30 +40,23 @@ class DonePage extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // TODO(A-02): Positive(#0E8A5F) · Positive Tint는 디자인 토큰으로 바꾼다.
                       Container(
                         width: 72,
                         height: 72,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFE6F4EE),
+                          color: AppColors.positiveTint,
                           shape: BoxShape.circle,
                         ),
-                        child: const DrawnCheck(color: Color(0xFF0E8A5F)),
+                        child: const DrawnCheck(color: AppColors.positive),
                       ),
-                      const SizedBox(height: 24),
-                      Text(kind.title, style: theme.textTheme.headlineSmall),
+                      const SizedBox(height: AppSpacing.belowTitle),
+                      // 완료 화면은 H1 원칙의 예외로 결과형 제목을 쓰고 부제는 두지 않는다.
+                      Text(kind.title, style: AppTypography.h1),
                     ],
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 34),
-                child: FilledButton(
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                  onPressed: onConfirm,
-                  child: const Text('확인'),
-                ),
-              ),
+              AppCtaArea(label: '확인', onPressed: onConfirm),
             ],
           ),
         ),

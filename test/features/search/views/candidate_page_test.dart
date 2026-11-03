@@ -5,6 +5,7 @@ import 'package:team_frontend/features/search/models/search_result.dart';
 import 'package:team_frontend/features/search/viewmodels/candidate_view_model.dart';
 import 'package:team_frontend/features/search/views/candidate_page.dart';
 
+import '../../../helpers/pump_test_app.dart';
 import '../../../fakes/fake_search_repository.dart';
 import '../../../fakes/sample_space.dart';
 
@@ -20,16 +21,14 @@ void main() {
         candidates: [for (final id in ids) sampleCandidate(id)],
       ),
     );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CandidatePage(
-          viewModel: vm,
-          condition: const SearchCondition(),
-          onClose: () {},
-          onEditStep: (_) {},
-          onGo: (c) => onGo?.call(c.spaceId),
-          onOpenPhoto: (_, _) {},
-        ),
+    await tester.pumpTestApp(
+      CandidatePage(
+        viewModel: vm,
+        condition: const SearchCondition(),
+        onClose: () {},
+        onEditStep: (_) {},
+        onGo: (c) => onGo?.call(c.spaceId),
+        onOpenPhoto: (_, _) {},
       ),
     );
     await tester.pumpAndSettle();
@@ -77,15 +76,13 @@ void main() {
         repository: FakeSearchRepository(missingIds: missingIds),
         spaceId: 7,
       );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: CandidatePage.restored(
-            viewModel: vm,
-            onClose: onClose ?? () {},
-            onGo: (c) => onGo?.call(c.spaceId),
-            onUnavailable: onUnavailable ?? () {},
-            onOpenPhoto: (_, _) {},
-          ),
+      await tester.pumpTestApp(
+        CandidatePage.restored(
+          viewModel: vm,
+          onClose: onClose ?? () {},
+          onGo: (c) => onGo?.call(c.spaceId),
+          onUnavailable: onUnavailable ?? () {},
+          onOpenPhoto: (_, _) {},
         ),
       );
       await tester.pumpAndSettle();

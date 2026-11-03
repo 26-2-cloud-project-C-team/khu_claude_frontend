@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:team_frontend/core/widgets/app_button.dart';
 import 'package:team_frontend/features/search/models/condition_alternative.dart';
 import 'package:team_frontend/features/search/models/requirement.dart';
 import 'package:team_frontend/features/search/models/search_condition.dart';
@@ -7,6 +7,7 @@ import 'package:team_frontend/features/search/models/search_result.dart';
 import 'package:team_frontend/features/search/viewmodels/no_result_view_model.dart';
 import 'package:team_frontend/features/search/views/no_result_page.dart';
 
+import '../../../helpers/pump_test_app.dart';
 import '../../../fakes/fake_search_repository.dart';
 
 void main() {
@@ -27,19 +28,17 @@ void main() {
       ),
     );
     SearchResult? adopted;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: NoResultPage(viewModel: vm, onAdopt: (r) => adopted = r, onRestart: () {}),
-      ),
+    await tester.pumpTestApp(
+      NoResultPage(viewModel: vm, onAdopt: (r) => adopted = r, onRestart: () {}),
     );
     await tester.pumpAndSettle();
 
-    final cta = find.widgetWithText(FilledButton, '후보 보기');
-    expect(tester.widget<FilledButton>(cta).onPressed, isNull);
+    final cta = find.widgetWithText(AppButton, '후보 보기');
+    expect(tester.widget<AppButton>(cta).onPressed, isNull);
 
     await tester.tap(find.text('조용한 분위기 조건 빼기'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, '8곳 보기'));
+    await tester.tap(find.widgetWithText(AppButton, '8곳 보기'));
     await tester.pumpAndSettle();
 
     expect(adopted!.count, 8);

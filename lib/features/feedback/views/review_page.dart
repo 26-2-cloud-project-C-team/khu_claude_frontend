@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_rating.dart';
+import '../../../core/widgets/app_screen_parts.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../models/rating.dart';
 import '../viewmodels/review_view_model.dart';
+import 'widgets/close_bar.dart';
 
 /// US-07 A(별점) · B(후기). 모달로 열리고 닫으면 입력값을 버린다.
 class ReviewPage extends StatefulWidget {
@@ -74,47 +81,30 @@ class _ReviewPageState extends State<ReviewPage> {
             if (!didPop) _back();
           },
           child: Scaffold(
-            appBar: AppBar(
-              leading: onText
-                  ? IconButton(icon: const Icon(Icons.arrow_back), tooltip: '뒤로', onPressed: _back)
-                  : IconButton(
-                      icon: const Icon(Icons.close),
-                      tooltip: '닫기',
-                      onPressed: widget.onClose,
+            body: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  // A는 닫기(×), B는 별점으로 돌아가는 뒤로(‹).
+                  if (onText) AppNavBar(onBack: _back) else CloseBar(onClose: widget.onClose),
+                  Expanded(child: onText ? _textBody() : _ratingBody()),
+                  if (onText)
+                    AppCtaArea(
+                      label: '등록하기',
+                      onPressed: _vm.isSubmitting || !_vm.isTextValid
+                          ? null
+                          : () => _submit(includeText: true),
+                      secondaryLabel: _vm.canSubmitRatingOnly ? '후기 없이 별점만 등록' : null,
+                      onSecondaryPressed: _vm.isSubmitting
+                          ? null
+                          : () => _submit(includeText: false),
+                    )
+                  else
+                    AppCtaArea(
+                      label: '다음',
+                      onPressed: _vm.canProceedFromRating ? _vm.goToText : null,
                     ),
-            ),
-            body: onText ? _textBody(context) : _ratingBody(context),
-            bottomNavigationBar: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 34),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: onText
-                      ? [
-                          FilledButton(
-                            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                            onPressed: _vm.isSubmitting || !_vm.isTextValid
-                                ? null
-                                : () => _submit(includeText: true),
-                            child: const Text('등록하기'),
-                          ),
-                          if (_vm.canSubmitRatingOnly)
-                            TextButton(
-                              onPressed: _vm.isSubmitting
-                                  ? null
-                                  : () => _submit(includeText: false),
-                              child: const Text('후기 없이 별점만 등록'),
-                            ),
-                        ]
-                      : [
-                          FilledButton(
-                            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                            onPressed: _vm.canProceedFromRating ? _vm.goToText : null,
-                            child: const Text('다음'),
-                          ),
-                        ],
-                ),
+                ],
               ),
             ),
           ),
@@ -123,61 +113,54 @@ class _ReviewPageState extends State<ReviewPage> {
     );
   }
 
-  Widget _ratingBody(BuildContext context) {
-    final theme = Theme.of(context);
-    final rating = _vm.rating ?? 0;
+  Widget _ratingBody() {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenHorizontal,
+        AppSpacing.belowTitle,
+        AppSpacing.screenHorizontal,
+        AppSpacing.belowTitle,
+      ),
       children: [
-        Text('이용한 공간은 만족스러우셨나요?', style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 4),
-        Text(widget.spaceName, style: theme.textTheme.bodyMedium),
-        const SizedBox(height: 32),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = minRating; i <= maxRating; i++)
-              IconButton(
-                iconSize: 44,
-                tooltip: '$i점',
-                onPressed: () => _vm.selectRating(i),
-                // TODO(A-02): 별점 골드(#C3A353)는 디자인 토큰으로 바꾼다.
-                icon: Icon(
-                  i <= rating ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: i <= rating ? const Color(0xFFC3A353) : theme.colorScheme.outline,
-                ),
-              ),
-          ],
+        const Text('이용한 공간은 만족스러우셨나요?', style: AppTypography.h1),
+        const SizedBox(height: AppSpacing.inside),
+        Text(widget.spaceName, style: AppTypography.body1.copyWith(color: AppColors.gray600)),
+        const SizedBox(height: AppSpacing.section),
+        Center(
+          child: AppRatingInput(value: _vm.rating, onChanged: _vm.selectRating),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.between),
         if (_vm.rating != null)
           Text(
             '${_vm.rating}점 · ${_vm.ratingLabel}',
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium,
+            style: AppTypography.h3,
           ),
       ],
     );
   }
 
-  Widget _textBody(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget _textBody() {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenHorizontal,
+        AppSpacing.belowTitle,
+        AppSpacing.screenHorizontal,
+        AppSpacing.belowTitle,
+      ),
       children: [
-        Text('간단한 후기 작성을 부탁드려요', style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 4),
-        Text('작성한 후기는 다른 사용자에게 익명으로 공개돼요', style: theme.textTheme.bodyMedium),
-        const SizedBox(height: 24),
-        TextField(
+        const Text('간단한 후기 작성을 부탁드려요', style: AppTypography.h1),
+        const SizedBox(height: AppSpacing.inside),
+        Text(
+          '작성한 후기는 다른 사용자에게 익명으로 공개돼요',
+          style: AppTypography.body1.copyWith(color: AppColors.gray600),
+        ),
+        const SizedBox(height: AppSpacing.section),
+        AppTextField(
           controller: _text,
-          maxLines: 6,
+          placeholder: '후기',
+          lines: 6,
           maxLength: reviewMaxLength,
-          decoration: InputDecoration(
-            labelText: '후기',
-            alignLabelWithHint: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
           onChanged: _vm.updateText,
         ),
       ],

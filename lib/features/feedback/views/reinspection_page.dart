@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_chip.dart';
+import '../../../core/widgets/app_screen_parts.dart';
+import '../../../core/widgets/app_selection_mode.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../models/rating.dart';
 import '../models/reinspection_category.dart';
 import '../viewmodels/reinspection_view_model.dart';
+import 'widgets/close_bar.dart';
 
 /// US-07 C 재조사 요청. 모달로 열리고 닫으면 입력값을 버린다.
 class ReinspectionPage extends StatefulWidget {
@@ -35,57 +43,55 @@ class _ReinspectionPageState extends State<ReinspectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return ListenableBuilder(
       listenable: _vm,
       builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: '닫기',
-            onPressed: widget.onClose,
-          ),
-        ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          children: [
-            Text('어떤 정보가 달랐나요?', style: theme.textTheme.headlineSmall),
-            const SizedBox(height: 4),
-            Text('확인 후 결과를 공간 상세에 알려 드려요', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final c in ReinspectionCategory.values)
-                  FilterChip(
-                    label: Text(c.label),
-                    selected: _vm.isSelected(c),
-                    onSelected: (_) => _vm.toggle(c),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              CloseBar(onClose: widget.onClose),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenHorizontal,
+                    AppSpacing.belowTitle,
+                    AppSpacing.screenHorizontal,
+                    AppSpacing.belowTitle,
                   ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              maxLines: 5,
-              maxLength: reinspectionDetailMaxLength,
-              decoration: InputDecoration(
-                labelText: '상세 내용',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  children: [
+                    const Text('어떤 정보가 달랐나요?', style: AppTypography.h1),
+                    const SizedBox(height: AppSpacing.inside),
+                    Text(
+                      '확인 후 결과를 공간 상세에 알려 드려요',
+                      style: AppTypography.body1.copyWith(color: AppColors.gray600),
+                    ),
+                    const SizedBox(height: AppSpacing.section),
+                    Wrap(
+                      spacing: AppSpacing.inside,
+                      runSpacing: AppSpacing.inside,
+                      children: [
+                        for (final c in ReinspectionCategory.values)
+                          AppChip(
+                            label: c.label,
+                            selected: _vm.isSelected(c),
+                            onTap: () => _vm.toggle(c),
+                            mode: AppSelectionMode.multiple,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.item),
+                    AppTextField(
+                      placeholder: '상세 내용',
+                      lines: 5,
+                      maxLength: reinspectionDetailMaxLength,
+                      onChanged: _vm.updateDetail,
+                    ),
+                  ],
+                ),
               ),
-              onChanged: _vm.updateDetail,
-            ),
-          ],
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 34),
-            child: FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-              onPressed: _vm.canSubmit ? _submit : null,
-              child: const Text('요청 보내기'),
-            ),
+              AppCtaArea(label: '요청 보내기', onPressed: _vm.canSubmit ? _submit : null),
+            ],
           ),
         ),
       ),

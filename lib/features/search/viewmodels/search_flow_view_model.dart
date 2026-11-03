@@ -182,6 +182,13 @@ class SearchFlowViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 인원 스테퍼(US-01 C). 1~10명 밖의 값은 무시한다.
+  void setHeadcount(int value) {
+    if (value < SearchCondition.minHeadcount || value > SearchCondition.maxHeadcount) return;
+    _condition = _condition.copyWith(headcount: value);
+    notifyListeners();
+  }
+
   void incrementHeadcount() {
     if (!canIncrementHeadcount) return;
     _condition = _condition.copyWith(headcount: _condition.headcount + 1);

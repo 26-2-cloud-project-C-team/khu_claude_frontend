@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/building.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/geo.dart';
+import '../../../core/widgets/app_bottom_sheet.dart';
+import '../../../core/widgets/app_screen_parts.dart';
 import '../models/origin.dart';
 import '../viewmodels/search_flow_view_model.dart';
 
@@ -61,88 +66,146 @@ class _BuildingSelectPageState extends State<BuildingSelectPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '뒤로',
-          onPressed: widget.onBack,
-        ),
-      ),
-      body: ListenableBuilder(
-        listenable: _vm,
-        builder: (context, _) {
-          final buildings = _filtered();
-          final origin = _vm.condition.origin;
-          final here = origin is CurrentLocationOrigin ? origin.point : null;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 34),
-            children: [
-              Text(
-                widget.locationUnavailable ? '어느 건물에서 출발하시나요?' : '출발할 건물을 선택해주세요',
-                style: theme.textTheme.headlineSmall,
-              ),
-              if (widget.locationUnavailable) ...[
-                const SizedBox(height: 4),
-                Text('현재 위치를 가져올 수 없어요', style: theme.textTheme.bodyMedium),
-              ],
-              const SizedBox(height: 24),
-              if (widget.locationUnavailable) ...[
-                Container(
-                  height: 52,
-                  padding: const EdgeInsets.only(left: 16, right: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(12),
+      body: Column(
+        children: [
+          AppNavBar(onBack: widget.onBack),
+          Expanded(
+            child: ListenableBuilder(
+              listenable: _vm,
+              builder: (context, _) {
+                final buildings = _filtered();
+                final origin = _vm.condition.origin;
+                final here = origin is CurrentLocationOrigin ? origin.point : null;
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenHorizontal,
+                    AppSpacing.belowTitle,
+                    AppSpacing.screenHorizontal,
+                    34,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_off_outlined, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text('위치 권한이 필요해요', style: theme.textTheme.bodyMedium)),
-                      TextButton(
-                        onPressed: _vm.originStatus == OriginStatus.locating ? null : _allowLocation,
-                        child: const Text('허용하기'),
+                  children: [
+                    Text(
+                      widget.locationUnavailable ? '어느 건물에서 출발하시나요?' : '출발할 건물을 선택해주세요',
+                      style: AppTypography.h1,
+                    ),
+                    if (widget.locationUnavailable) ...[
+                      const SizedBox(height: AppSpacing.inside),
+                      Text(
+                        '현재 위치를 가져올 수 없어요',
+                        style: AppTypography.body1.copyWith(color: AppColors.gray600),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              TextField(
-                decoration: InputDecoration(
-                  hintText: '건물 이름 검색',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onChanged: (v) => setState(() => _query = v),
-              ),
-              const SizedBox(height: 24),
-              Text('전체 건물 · 가나다순', style: theme.textTheme.bodySmall),
-              const SizedBox(height: 8),
-              if (_vm.buildings.isEmpty && !_vm.buildingsFailed)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              for (final b in buildings)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  minTileHeight: 56,
-                  title: Text(b.name),
-                  trailing: here == null
-                      ? null
-                      : Text('직선 ${distanceMeters(here, b.point).round()}m',
-                          style: theme.textTheme.bodySmall),
-                  onTap: () {
-                    _vm.chooseBuilding(b);
-                    widget.onSelected();
-                  },
-                ),
-            ],
-          );
-        },
+                    const SizedBox(height: AppSpacing.belowTitle),
+                    if (widget.locationUnavailable) ...[
+                      _LocationNotice(
+                        onAllow: _vm.originStatus == OriginStatus.locating ? null : _allowLocation,
+                      ),
+                      const SizedBox(height: AppSpacing.between),
+                    ],
+                    _BuildingSearchField(onChanged: (v) => setState(() => _query = v)),
+                    const SizedBox(height: AppSpacing.item),
+                    Text(
+                      '전체 건물 · 가나다순',
+                      style: AppTypography.caption.copyWith(color: AppColors.gray500),
+                    ),
+                    const SizedBox(height: AppSpacing.inside),
+                    if (_vm.buildings.isEmpty && !_vm.buildingsFailed)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: AppSpacing.section),
+                        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                      ),
+                    for (final b in buildings)
+                      AppSheetOption(
+                        label: b.name,
+                        caption: here == null
+                            ? null
+                            : '직선 ${distanceMeters(here, b.point).round()}m',
+                        selected: false,
+                        onTap: () {
+                          _vm.chooseBuilding(b);
+                          widget.onSelected();
+                        },
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 검색창 위의 위치 안내 줄(경희블루 Tint). 검색창과 높이 52 · 왼쪽 여백 16 · 아이콘 20을 맞춘다.
+class _LocationNotice extends StatelessWidget {
+  const _LocationNotice({required this.onAllow});
+
+  final VoidCallback? onAllow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.only(left: AppSpacing.cardPadding, right: AppSpacing.textLine),
+      decoration: BoxDecoration(
+        color: AppColors.khuBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.control),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.location_off_outlined, size: 20, color: AppColors.khuBlue),
+          const SizedBox(width: AppSpacing.inside),
+          Expanded(
+            child: Text(
+              '위치 권한이 필요해요',
+              style: AppTypography.body2.copyWith(color: AppColors.gray900),
+            ),
+          ),
+          TextButton(
+            onPressed: onAllow,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.khuBlue,
+              textStyle: AppTypography.body2.copyWith(fontWeight: FontWeight.w600),
+              minimumSize: const Size(44, 44),
+            ),
+            child: const Text('허용하기'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 건물 이름 검색창. 공통 입력 필드에는 앞 아이콘이 없어 같은 토큰으로 따로 둔다.
+class _BuildingSearchField extends StatelessWidget {
+  const _BuildingSearchField({required this.onChanged});
+
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const border = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(AppRadius.control)),
+      borderSide: BorderSide.none,
+    );
+    return SizedBox(
+      height: 52,
+      child: TextField(
+        style: AppTypography.body1.copyWith(color: AppColors.gray900),
+        decoration: InputDecoration(
+          hintText: '건물 이름 검색',
+          hintStyle: AppTypography.body1.copyWith(color: AppColors.gray400),
+          prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.gray500),
+          filled: true,
+          fillColor: AppColors.gray50,
+          contentPadding: EdgeInsets.zero,
+          border: border,
+          enabledBorder: border,
+          focusedBorder: border,
+        ),
+        onChanged: onChanged,
       ),
     );
   }

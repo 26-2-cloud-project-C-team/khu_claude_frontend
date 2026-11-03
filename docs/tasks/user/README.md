@@ -51,7 +51,9 @@ lib/
 | `ReviewPage` · `ReinspectionPage` (US-07) | 열 때마다 새로 생성 | `onDone` → US-08 · `onClose` → 모달 닫기 |
 | `DonePage` (US-08) | — | `onConfirm` → `flow.reset()` 후 US-00 |
 
-진행 바·옵션 행·단계형 틀(`search/views/widgets/`), 날짜 포맷, 별점 골드·Positive 색은 A-02·03·05·08이 들어오기 전까지 쓰는 임시 구현이다. `TODO(A-xx)`를 검색해 교체한다. 지도는 자리만 잡아 두었다(`TODO(A-12)`).
+화면은 `core/theme`의 토큰과 `core/widgets`의 공통 컴포넌트(`AppStepScaffold`·`AppOptionRow`·`AppChip`·`AppStepper`·`AppButton`·`AppCtaArea`·`AppBadge`·`AppRating*`·`AppTextField`·`AppCard`·`showAppBottomSheet`)로 그린다. 공통 컴포넌트에 없는 모양(US-00 아이콘 목적 타일, US-05 후보 수 배지가 붙은 대안 행, US-04 다음 후보 카드 등)은 같은 토큰으로 페이지 안에 private 위젯으로 둔다. 날짜 포맷은 A-08(`TODO(A-08)`), 지도는 A-12(`TODO(A-12)`)가 들어오면 교체한다.
+
+라우터 연결은 Repository 구현체와 `dependencies.dart`(06)가 생긴 뒤 한 번에 한다. 그 전에 실제 페이지를 연결하면 Provider가 없어 사용자 화면이 열리지 않는다.
 
 ## 화면 연결 방식
 
@@ -68,8 +70,8 @@ lib/
 | 시기 | 작업 |
 | --- | --- |
 | ~11/3 | Model · Repository interface · ViewModel · View(임시 컴포넌트) · Fake · Unit/Widget Test (이 문서와 함께 들어옴) |
-| A 머지 후 ~11/6 | 임시 컴포넌트를 A 공통 컴포넌트·토큰으로 교체, `router.dart`에 콜백 연결, 시안과 여백 맞추기 |
-| API 명세 확정 후 ~11/7 | `*_repository_impl.dart`를 A-06 ApiClient로 구현하고 `dependencies.dart`에 연결 |
+| A 머지 후 ~11/6 | 임시 컴포넌트를 A 공통 컴포넌트·토큰으로 교체(완료), 시안과 여백 맞추기 |
+| API 명세 확정 후 ~11/7 | `*_repository_impl.dart`를 A-06 ApiClient로 구현하고 `dependencies.dart`에 연결, `router.dart`에 페이지·콜백 연결 |
 | 마지막 | US-06 지도를 A-12 카카오맵 래퍼에 연결 |
 
 ## 확인 필요

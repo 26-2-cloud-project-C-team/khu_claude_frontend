@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_screen_parts.dart';
 import '../models/search_result.dart';
 import '../viewmodels/no_result_view_model.dart';
-import 'widgets/option_tile.dart';
 
 /// US-05 결과 없음 · 조건 변경 대안.
 class NoResultPage extends StatefulWidget {
@@ -36,53 +39,124 @@ class _NoResultPageState extends State<NoResultPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return ListenableBuilder(
       listenable: _vm,
       builder: (context, _) {
         final count = _vm.selectedCount;
         return Scaffold(
-          appBar: AppBar(),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            children: [
-              Text('조건에 맞는 공간이 없어요', style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 4),
-              Text('조건을 하나만 바꾸면 찾을 수 있어요', style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 24),
-              for (var i = 0; i < _vm.alternatives.length; i++)
-                OptionTile(
-                  label: _vm.alternatives[i].alternative.label,
-                  selected: _vm.selectedIndex == i,
-                  onTap: () => _vm.select(i),
-                  trailing: Badge(
-                    label: Text('${_vm.alternatives[i].count}곳'),
-                    backgroundColor: _vm.selectedIndex == i
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outline,
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.screenHorizontal,
+                      56 + AppSpacing.belowTitle,
+                      AppSpacing.screenHorizontal,
+                      AppSpacing.belowTitle,
+                    ),
+                    children: [
+                      const Text('조건에 맞는 공간이 없어요', style: AppTypography.h1),
+                      const SizedBox(height: AppSpacing.inside),
+                      Text(
+                        '조건을 하나만 바꾸면 찾을 수 있어요',
+                        style: AppTypography.body1.copyWith(color: AppColors.gray600),
+                      ),
+                      const SizedBox(height: AppSpacing.section),
+                      for (var i = 0; i < _vm.alternatives.length; i++) ...[
+                        _AlternativeRow(
+                          label: _vm.alternatives[i].alternative.label,
+                          count: _vm.alternatives[i].count,
+                          selected: _vm.selectedIndex == i,
+                          onTap: () => _vm.select(i),
+                        ),
+                        const SizedBox(height: AppSpacing.between),
+                      ],
+                    ],
                   ),
                 ),
-            ],
-          ),
-          bottomNavigationBar: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 34),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  FilledButton(
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                    onPressed: _vm.canSubmit ? _adopt : null,
-                    child: Text(count == null ? '후보 보기' : '$count곳 보기'),
-                  ),
-                  TextButton(onPressed: widget.onRestart, child: const Text('처음부터 다시 설정')),
-                ],
-              ),
+                AppCtaArea(
+                  label: count == null ? '후보 보기' : '$count곳 보기',
+                  onPressed: _vm.canSubmit ? _adopt : null,
+                  secondaryLabel: '처음부터 다시 설정',
+                  onSecondaryPressed: widget.onRestart,
+                ),
+              ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// 대안 행. 공통 옵션 행과 같은 모양에 오른쪽 예상 후보 수 배지를 둔다.
+/// 선택되면 Primary Tint 배경 + 테두리, 배지는 Primary로 채운다.
+class _AlternativeRow extends StatelessWidget {
+  const _AlternativeRow({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      checked: selected,
+      inMutuallyExclusiveGroup: true,
+      child: Material(
+        color: selected ? AppColors.primaryTint : AppColors.gray50,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.option),
+          side: BorderSide(color: selected ? AppColors.primary : AppColors.gray100, width: 1.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: SizedBox(
+            height: 60,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: AppTypography.body1.copyWith(
+                        color: selected ? AppColors.primary : AppColors.gray900,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    height: 24,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.inside),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: selected ? AppColors.primary : AppColors.gray100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$count곳',
+                      style: AppTypography.label.copyWith(
+                        color: selected ? AppColors.white : AppColors.gray600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

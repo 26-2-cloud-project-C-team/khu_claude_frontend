@@ -6,6 +6,7 @@ import 'package:team_frontend/features/search/models/origin.dart';
 import 'package:team_frontend/features/search/viewmodels/search_flow_view_model.dart';
 import 'package:team_frontend/features/search/views/building_select_page.dart';
 
+import '../../../helpers/pump_test_app.dart';
 import '../../../fakes/fake_location_repository.dart';
 import '../../../fakes/fake_search_repository.dart';
 import '../../../fakes/sample_space.dart';
@@ -25,15 +26,15 @@ void main() {
   });
 
   Future<void> pumpPage(WidgetTester tester, {required bool unavailable}) async {
-    await tester.pumpWidget(MaterialApp(
-      home: BuildingSelectPage(
+    await tester.pumpTestApp(
+      BuildingSelectPage(
         viewModel: vm,
         locationUnavailable: unavailable,
         onSelected: () => selected++,
         onLocated: () {},
         onBack: () {},
       ),
-    ));
+    );
     await tester.pumpAndSettle();
   }
 

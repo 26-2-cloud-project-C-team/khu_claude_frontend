@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:team_frontend/core/widgets/app_button.dart';
 import 'package:team_frontend/features/feedback/models/today_review.dart';
 import 'package:team_frontend/features/feedback/viewmodels/review_view_model.dart';
 import 'package:team_frontend/features/feedback/views/review_page.dart';
 
+import '../../../helpers/pump_test_app.dart';
 import '../../../fakes/fake_feedback_repository.dart';
 
 void main() {
@@ -11,20 +12,15 @@ void main() {
     final repo = FakeFeedbackRepository();
     final vm = ReviewViewModel(repository: repo, spaceId: 1);
     var done = 0;
-    await tester.pumpWidget(MaterialApp(
-      home: ReviewPage(
-        viewModel: vm,
-        spaceName: '중앙도서관 4층 열람실',
-        onDone: () => done++,
-        onClose: () {},
-      ),
-    ));
+    await tester.pumpTestApp(
+      ReviewPage(viewModel: vm, spaceName: '중앙도서관 4층 열람실', onDone: () => done++, onClose: () {}),
+    );
     await tester.pumpAndSettle();
 
-    final next = find.widgetWithText(FilledButton, '다음');
-    expect(tester.widget<FilledButton>(next).onPressed, isNull);
+    final next = find.widgetWithText(AppButton, '다음');
+    expect(tester.widget<AppButton>(next).onPressed, isNull);
 
-    await tester.tap(find.byTooltip('4점'));
+    await tester.tap(find.bySemanticsLabel('4점'));
     await tester.pump();
     expect(find.text('4점 · 만족해요'), findsOneWidget);
 
@@ -45,18 +41,13 @@ void main() {
       todayReview: const TodayReview(rating: 5, text: '창가 쪽이 좋아요'),
     );
     final vm = ReviewViewModel(repository: repo, spaceId: 1);
-    await tester.pumpWidget(MaterialApp(
-      home: ReviewPage(
-        viewModel: vm,
-        spaceName: '중앙도서관 4층 열람실',
-        onDone: () {},
-        onClose: () {},
-      ),
-    ));
+    await tester.pumpTestApp(
+      ReviewPage(viewModel: vm, spaceName: '중앙도서관 4층 열람실', onDone: () {}, onClose: () {}),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('5점 · 최고예요'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '다음'));
+    await tester.tap(find.widgetWithText(AppButton, '다음'));
     await tester.pump();
 
     expect(find.text('창가 쪽이 좋아요'), findsOneWidget);

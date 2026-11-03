@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/building.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_screen_parts.dart';
 import '../../search/models/candidate.dart';
 import '../models/directions_stage.dart';
 import '../viewmodels/directions_view_model.dart';
@@ -68,41 +72,84 @@ class _DirectionsPageState extends State<DirectionsPage> {
         }
         final destination = _vm.destination.buildingName;
         return Scaffold(
-          appBar: AppBar(
-            title: Text(_vm.stage == DirectionsStage.moving ? '길찾기' : '내부 안내'),
-            leading: IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: '닫기',
-              onPressed: widget.onClose,
-            ),
-          ),
-          body: Column(
-            children: [
-              // TODO(A-12): 카카오맵 래퍼로 바꾼다. 현재 위치 = 경희블루 점, 목적지 = 경희레드 핀,
-              // 경로 = 경희레드 선. 진입 시 출발점·목적지가 모두 보이게 범위를 맞춘다.
-              // ②(lacksOrigin)는 경로선 · 현재 위치 점 · '현재 위치로' 버튼 없이 목적지 핀과 Tint 건물만,
-              // 목적지 건물이 가운데 오도록 맞춘다.
-              Expanded(
-                child: Container(
-                  key: const ValueKey('map-placeholder'),
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  alignment: Alignment.center,
-                  child: Text(
-                    _vm.lacksOrigin ? destination : '${_vm.originLabel ?? '현재 위치'} → $destination',
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                _TitleBar(
+                  title: _vm.stage == DirectionsStage.moving ? '길찾기' : '내부 안내',
+                  onClose: widget.onClose,
+                ),
+                // TODO(A-12): 카카오맵 래퍼로 바꾼다. 현재 위치 = 경희블루 점, 목적지 = 경희레드 핀,
+                // 경로 = 경희레드 선. 진입 시 출발점·목적지가 모두 보이게 범위를 맞춘다.
+                // ②(lacksOrigin)는 경로선 · 현재 위치 점 · '현재 위치로' 버튼 없이 목적지 핀과 Tint 건물만,
+                // 목적지 건물이 가운데 오도록 맞춘다.
+                Expanded(
+                  child: Container(
+                    key: const ValueKey('map-placeholder'),
+                    color: AppColors.gray100,
+                    alignment: Alignment.center,
+                    child: Text(
+                      _vm.lacksOrigin
+                          ? destination
+                          : '${_vm.originLabel ?? '현재 위치'} → $destination',
+                      style: AppTypography.body2.copyWith(color: AppColors.gray600),
+                    ),
                   ),
                 ),
-              ),
-              if (_vm.isResolvingOrigin)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else
-                _RouteSheet(viewModel: _vm, onChooseOrigin: _chooseOrigin),
-            ],
+                if (_vm.isResolvingOrigin)
+                  const Padding(
+                    padding: EdgeInsets.all(AppSpacing.section),
+                    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  )
+                else
+                  _RouteSheet(viewModel: _vm, onChooseOrigin: _chooseOrigin),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+/// 위쪽 줄. 왼쪽 닫기(×) · 가운데 제목(H3).
+class _TitleBar extends StatelessWidget {
+  const _TitleBar({required this.title, required this.onClose});
+
+  final String title;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Row(
+        children: [
+          const SizedBox(width: AppSpacing.screenHorizontal - 10),
+          Semantics(
+            label: '닫기',
+            button: true,
+            child: Tooltip(
+              message: '닫기',
+              child: InkWell(
+                onTap: onClose,
+                customBorder: const CircleBorder(),
+                splashFactory: NoSplash.splashFactory,
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+                child: const SizedBox.square(
+                  dimension: 44,
+                  child: Icon(Icons.close, size: 24, color: AppColors.gray900),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(title, textAlign: TextAlign.center, style: AppTypography.h3),
+          ),
+          const SizedBox(width: 44 + AppSpacing.screenHorizontal - 10),
+        ],
+      ),
     );
   }
 }
@@ -116,7 +163,6 @@ class _RouteSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final vm = viewModel;
     final d = vm.destination;
     final moving = vm.stage == DirectionsStage.moving;
@@ -126,8 +172,8 @@ class _RouteSheet extends StatelessWidget {
     final noOrigin = vm.lacksOrigin;
     final label = moving ? '1/2 · 이동 중' : (noOrigin ? '내부 안내' : '2/2 · 건물 도착');
     final labelColor = moving
-        ? theme.colorScheme.primary
-        : (noOrigin ? theme.colorScheme.onSurfaceVariant : Colors.green.shade700);
+        ? AppColors.primary
+        : (noOrigin ? AppColors.gray500 : AppColors.positive);
     final title = moving
         ? (vm.isApproaching
               ? '곧 도착해요'
@@ -139,98 +185,109 @@ class _RouteSheet extends StatelessWidget {
               : '${route.isFallback ? '직선' : '걷는 길'} ${route.distanceMeters.round()}m')
         : (noOrigin ? d.buildingName : '${d.buildingName}에 도착했어요');
 
+    // 안의 '도착 전에 확인해주세요'가 Material에 그려지도록 시트 바탕도 Material로 둔다.
     return Material(
+      color: AppColors.white,
       elevation: 8,
+      shadowColor: AppColors.gray900.withValues(alpha: 0.2),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.bottomSheet)),
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(label, style: theme.textTheme.labelLarge?.copyWith(color: labelColor)),
-              const SizedBox(height: 4),
-              Text(title, style: theme.textTheme.titleLarge),
-              if (sub != null) ...[
-                const SizedBox(height: 4),
-                Text(sub, style: theme.textTheme.bodyMedium),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenHorizontal,
+              AppSpacing.screenHorizontal,
+              AppSpacing.screenHorizontal,
+              0,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(label, style: AppTypography.label.copyWith(color: labelColor)),
+                const SizedBox(height: AppSpacing.textLine),
+                Text(title, style: AppTypography.h2),
+                if (sub != null) ...[
+                  const SizedBox(height: AppSpacing.textLine),
+                  Text(sub, style: AppTypography.body2.copyWith(color: AppColors.gray700)),
+                ],
+                const SizedBox(height: AppSpacing.cardPadding),
+                DestinationCard(destination: d, highlighted: !moving),
+                if (!moving) _BeforeArrival(destination: d),
               ],
-              const SizedBox(height: 16),
-              DestinationCard(destination: d),
-              if (!moving) _BeforeArrival(destination: d),
-              const SizedBox(height: 16),
-              FilledButton(
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                onPressed: moving ? vm.arriveAtBuilding : vm.startUsing,
-                child: Text(moving ? '건물에 도착했어요' : '공간에 도착했어요'),
-              ),
-              // ②에는 길 안내가 이미 없으므로 '길 안내 없이' 대신 길 안내를 되찾는 길을 둔다.
-              noOrigin
-                  ? TextButton(onPressed: onChooseOrigin, child: const Text('출발 건물 골라서 길찾기'))
-                  : TextButton(onPressed: vm.startUsing, child: const Text('길 안내 없이 바로 이용하기')),
-            ],
+            ),
           ),
-        ),
+          // AppCtaArea가 좌우 여백 20 · 아래 34를 직접 둔다.
+          AppCtaArea(
+            label: moving ? '건물에 도착했어요' : '공간에 도착했어요',
+            onPressed: moving ? vm.arriveAtBuilding : vm.startUsing,
+            // ②에는 길 안내가 이미 없으므로 '길 안내 없이' 대신 길 안내를 되찾는 길을 둔다.
+            secondaryLabel: noOrigin ? '출발 건물 골라서 길찾기' : '길 안내 없이 바로 이용하기',
+            onSecondaryPressed: noOrigin ? onChooseOrigin : vm.startUsing,
+          ),
+        ],
       ),
     );
   }
 }
 
 /// 목적지 카드(썸네일 · 층 공간명 · 상세 위치). A·B·C 공용.
+/// [highlighted]면 건물 도착 후라 Primary Tint로 강조한다.
 class DestinationCard extends StatelessWidget {
-  const DestinationCard({super.key, required this.destination});
+  const DestinationCard({super.key, required this.destination, this.highlighted = false});
 
   final CandidateDetail destination;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final photo = destination.photos.isEmpty ? null : destination.photos.first.url;
-    final placeholder = Container(
-      width: 56,
-      height: 56,
-      color: theme.colorScheme.surfaceContainerHighest,
-    );
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: photo == null
-                  ? placeholder
-                  : Image.network(
-                      photo,
-                      width: 56,
-                      height: 56,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => placeholder,
-                    ),
+    final placeholder = Container(width: 56, height: 56, color: AppColors.gray100);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.between),
+      decoration: BoxDecoration(
+        color: highlighted ? AppColors.primaryTint : AppColors.gray50,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.control),
+            child: photo == null
+                ? placeholder
+                : Image.network(
+                    photo,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => placeholder,
+                  ),
+          ),
+          const SizedBox(width: AppSpacing.between),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(destination.name, style: AppTypography.h3),
+                const SizedBox(height: AppSpacing.textLine),
+                Text(
+                  destination.locationGuide,
+                  style: AppTypography.body2.copyWith(color: AppColors.gray700),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(destination.name, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(destination.locationGuide, style: theme.textTheme.bodySmall),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
+/// '도착 전에 확인해주세요'. 입구 · 가는 길 · 내부 사진과 비고를 접어 두고 탭하면 펼친다.
 class _BeforeArrival extends StatelessWidget {
   const _BeforeArrival({required this.destination});
 
@@ -242,45 +299,59 @@ class _BeforeArrival extends StatelessWidget {
       for (final p in destination.photos)
         if (p.tag != null) p,
     ];
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      title: const Text('도착 전에 확인해주세요'),
-      children: [
-        if (tagged.isNotEmpty)
-          SizedBox(
-            height: 96,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: tagged.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, i) => Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      tagged[i].url,
-                      width: 96,
-                      height: 72,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const SizedBox(width: 96, height: 72),
+    final note = destination.note;
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        iconColor: AppColors.gray500,
+        collapsedIconColor: AppColors.gray500,
+        title: Text('도착 전에 확인해주세요', style: AppTypography.body1.copyWith(color: AppColors.gray900)),
+        children: [
+          if (tagged.isNotEmpty)
+            SizedBox(
+              height: 96,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: tagged.length,
+                separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.inside),
+                itemBuilder: (context, i) => Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.control),
+                      child: Image.network(
+                        tagged[i].url,
+                        width: 96,
+                        height: 72,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            Container(width: 96, height: 72, color: AppColors.gray100),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(tagged[i].tag!.label, style: Theme.of(context).textTheme.bodySmall),
-                ],
+                    const SizedBox(height: AppSpacing.textLine),
+                    Text(
+                      tagged[i].tag!.label,
+                      style: AppTypography.caption.copyWith(color: AppColors.gray500),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        if (destination.note != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Align(alignment: Alignment.centerLeft, child: Text(destination.note!)),
-          ),
-      ],
+          if (note != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.inside),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(note, style: AppTypography.body2.copyWith(color: AppColors.gray700)),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
+/// C 이용 중. CTA 없이 텍스트 행 2개만 둔다.
 class _InUseView extends StatelessWidget {
   const _InUseView({
     required this.destination,
@@ -296,54 +367,105 @@ class _InUseView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final d = destination;
+    final note = d.note;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('이용 중'),
-        leading: IconButton(icon: const Icon(Icons.close), tooltip: '닫기', onPressed: onClose),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _TitleBar(title: '이용 중', onClose: onClose),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenHorizontal,
+                  AppSpacing.inside,
+                  AppSpacing.screenHorizontal,
+                  34,
+                ),
+                children: [
+                  Text('공간 도착', style: AppTypography.label.copyWith(color: AppColors.positive)),
+                  const SizedBox(height: AppSpacing.textLine),
+                  Text(d.name, style: AppTypography.h1),
+                  const SizedBox(height: AppSpacing.textLine),
+                  Text(
+                    '${d.floor} · ${d.locationGuide}',
+                    style: AppTypography.body2.copyWith(color: AppColors.gray700),
+                  ),
+                  if (d.closesAt != null) ...[
+                    const SizedBox(height: AppSpacing.between),
+                    Text(
+                      '오늘 ${d.closesAt}까지 이용 가능',
+                      style: AppTypography.body1.copyWith(color: AppColors.gray900),
+                    ),
+                  ],
+                  if (note != null) ...[
+                    const SizedBox(height: AppSpacing.textLine),
+                    Text(note, style: AppTypography.body2.copyWith(color: AppColors.gray700)),
+                  ],
+                  const SizedBox(height: AppSpacing.section),
+                  const Text('의견을 남겨주시면 다음 사람에게 도움이 돼요', style: AppTypography.h3),
+                  const SizedBox(height: AppSpacing.between),
+                  _FeedbackRow(title: '이용 의견 남기기', subtitle: '별점과 한마디', onTap: onReview),
+                  const SizedBox(height: AppSpacing.between),
+                  _FeedbackRow(title: '정보가 달라요', subtitle: '재조사 요청', onTap: onReinspect),
+                  const SizedBox(height: AppSpacing.item),
+                  Text(
+                    '닫으면 처음 화면으로 돌아가요',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.caption.copyWith(color: AppColors.gray500),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 34),
-        children: [
-          Text('공간 도착', style: theme.textTheme.labelLarge?.copyWith(color: Colors.green.shade700)),
-          const SizedBox(height: 4),
-          Text(d.name, style: theme.textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text('${d.floor} · ${d.locationGuide}', style: theme.textTheme.bodyMedium),
-          if (d.closesAt != null) ...[
-            const SizedBox(height: 12),
-            Text('오늘 ${d.closesAt}까지 이용 가능', style: theme.textTheme.bodyLarge),
-          ],
-          if (d.note != null) ...[
-            const SizedBox(height: 4),
-            Text(d.note!, style: theme.textTheme.bodyMedium),
-          ],
-          const SizedBox(height: 32),
-          Text('의견을 남겨주시면 다음 사람에게 도움이 돼요', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 12),
-          Card(
-            margin: EdgeInsets.zero,
-            child: ListTile(
-              title: const Text('이용 의견 남기기'),
-              subtitle: const Text('별점과 한마디'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: onReview,
+    );
+  }
+}
+
+class _FeedbackRow extends StatelessWidget {
+  const _FeedbackRow({required this.title, required this.subtitle, required this.onTap});
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.gray50,
+      borderRadius: BorderRadius.circular(AppRadius.card),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        child: SizedBox(
+          height: 64,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.cardPadding),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: AppTypography.body1.copyWith(color: AppColors.gray900)),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: AppTypography.caption.copyWith(color: AppColors.gray500),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 20, color: AppColors.gray400),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Card(
-            margin: EdgeInsets.zero,
-            child: ListTile(
-              title: const Text('정보가 달라요'),
-              subtitle: const Text('재조사 요청'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: onReinspect,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text('닫으면 처음 화면으로 돌아가요', textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
-        ],
+        ),
       ),
     );
   }

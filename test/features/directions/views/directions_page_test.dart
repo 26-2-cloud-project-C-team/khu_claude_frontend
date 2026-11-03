@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:team_frontend/core/location/location_repository.dart';
 import 'package:team_frontend/core/models/building.dart';
@@ -7,6 +6,7 @@ import 'package:team_frontend/features/directions/viewmodels/directions_view_mod
 import 'package:team_frontend/features/directions/views/directions_page.dart';
 import 'package:team_frontend/features/search/models/origin.dart';
 
+import '../../../helpers/pump_test_app.dart';
 import '../../../fakes/fake_directions_repository.dart';
 import '../../../fakes/fake_location_repository.dart';
 import '../../../fakes/sample_space.dart';
@@ -23,15 +23,15 @@ void main() {
     );
     addTearDown(vm.dispose);
     var reviews = 0;
-    await tester.pumpWidget(MaterialApp(
-      home: DirectionsPage(
+    await tester.pumpTestApp(
+      DirectionsPage(
         viewModel: vm,
         onChooseOrigin: () async => null,
         onReview: () => reviews++,
         onReinspect: () {},
         onClose: () {},
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('중앙도서관(대학본부)까지 도보 6분'), findsOneWidget);
@@ -48,8 +48,7 @@ void main() {
     expect(reviews, 1);
   });
 
-  testWidgets('복구 · 출발점 없음이면 US-03을 먼저 띄우고, 닫으면 핀만 있는 내부 안내에 남는다',
-      (tester) async {
+  testWidgets('복구 · 출발점 없음이면 US-03을 먼저 띄우고, 닫으면 핀만 있는 내부 안내에 남는다', (tester) async {
     final vm = DirectionsViewModel(
       directionsRepository: FakeDirectionsRepository(
         route: const WalkingRoute(path: [], distanceMeters: 450, minutes: 6),
@@ -60,15 +59,15 @@ void main() {
     addTearDown(vm.dispose);
     final picks = <Building?>[null, engineering];
     var asked = 0;
-    await tester.pumpWidget(MaterialApp(
-      home: DirectionsPage(
+    await tester.pumpTestApp(
+      DirectionsPage(
         viewModel: vm,
         onChooseOrigin: () async => picks[asked++],
         onReview: () {},
         onReinspect: () {},
         onClose: () {},
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(asked, 1);
