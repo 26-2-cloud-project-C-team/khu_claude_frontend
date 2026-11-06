@@ -83,6 +83,7 @@ AppException _toException(int statusCode, Response<dynamic> response) {
   return AppException(
     statusCode: statusCode,
     code: error?['code'] as String?,
+    message: error?['message'] as String?,
     fieldErrors: _parseFieldErrors(error?['details']),
     retryAfter: retryAfter,
   );
