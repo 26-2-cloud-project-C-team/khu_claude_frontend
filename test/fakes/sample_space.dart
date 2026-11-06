@@ -3,9 +3,27 @@ import 'package:team_frontend/core/models/noise.dart';
 import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/features/search/models/candidate.dart';
 
-const engineering = Building(id: 1, name: '공학관', lat: 37.2465, lng: 127.0802);
-const centralLibrary = Building(id: 2, name: '중앙도서관(대학본부)', lat: 37.2410, lng: 127.0800);
-const lifeScience = Building(id: 3, name: '생명과학대학관', lat: 37.2430, lng: 127.0820);
+const engineering = Building(
+  id: 'building-1',
+  name: '공학관',
+  lat: 37.2465,
+  lng: 127.0802,
+  floorRange: FloorRange(min: 1, max: 4),
+);
+const centralLibrary = Building(
+  id: 'building-2',
+  name: '중앙도서관(대학본부)',
+  lat: 37.2410,
+  lng: 127.0800,
+  floorRange: FloorRange(min: 1, max: 4),
+);
+const lifeScience = Building(
+  id: 'building-3',
+  name: '생명과학대학관',
+  lat: 37.2430,
+  lng: 127.0820,
+  floorRange: FloorRange(min: 1, max: 4),
+);
 
 CandidateDetail sampleCandidate(
   int id, {
