@@ -11,7 +11,7 @@ B·C의 Repository 구현체가 쓰는 HTTP 클라이언트와 공통 예외를 
 - 로컬 개발은 Flutter 웹 개발 서버의 프록시(루트 `web_dev_config.yaml`)로 `/api/…`를 API 서버에 넘긴다. API 서버 주소가 다르면 `target`만 바꾼다.
 - `ApiClient`는 성공하면 디코딩한 JSON(본문이 없으면 `null`)을 돌려주고, 실패하면 `AppException`을 던진다. 응답을 받지 못한 경우는 `statusCode`가 `null`이다(`isNetworkError`).
 - 5xx는 본문에 에러 스키마가 있어도 `code`를 비워 둔다. 화면은 `isServerError`로 처리한다.
-- 관리자 API의 401은 `ApiClient.adminUnauthorized` 스트림으로 알린다. C가 구독해 AD-01로 보낸다.
+- 관리자 API의 401은 `ApiClient.adminUnauthorized` 스트림으로 알린다. C가 구독해 AD-01로 보낸다. 로그인(`/api/admin/auth/google`)의 401은 Google 토큰 오류라 알리지 않는다.
 
 ## 할 일
 

@@ -24,7 +24,7 @@ class ApiClient {
   final Dio _dio;
   final _adminUnauthorized = StreamController<void>.broadcast();
 
-  /// 관리자 API(`/api/admin/…`)가 `401`을 돌려줄 때마다 이벤트가 온다.
+  /// 관리자 API(`/api/admin/…`)가 `401`을 돌려줄 때마다 이벤트가 온다. 로그인 요청은 제외한다.
   Stream<void> get adminUnauthorized => _adminUnauthorized.stream;
 
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
@@ -57,8 +57,11 @@ class ApiClient {
       if (response == null) throw const AppException();
 
       final statusCode = response.statusCode!;
+      final path = e.requestOptions.uri.path;
+      // 로그인 요청의 401은 Google 토큰 오류(AUTH_INVALID_GOOGLE_TOKEN)라 세션 만료 알림 대상이 아니다.
       if (statusCode == 401 &&
-          e.requestOptions.uri.path.startsWith('/api/admin/')) {
+          path.startsWith('/api/admin/') &&
+          path != '/api/admin/auth/google') {
         _adminUnauthorized.add(null);
       }
       throw _toException(statusCode, response);

@@ -293,5 +293,16 @@ void main() {
 
       expect(count, 0);
     });
+
+    test('관리자 로그인의 401은 이벤트를 보내지 않는다', () async {
+      final client = ApiClient(adapter: _FakeAdapter(unauthorized));
+      var count = 0;
+      client.adminUnauthorized.listen((_) => count++);
+
+      await _catchError(client.post('/api/admin/auth/google', body: {}));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(count, 0);
+    });
   });
 }
