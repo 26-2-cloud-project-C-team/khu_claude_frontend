@@ -108,6 +108,7 @@ void main() {
 
       expect(e.statusCode, 404);
       expect(e.code, 'SPACE_NOT_FOUND');
+      expect(e.message, '공간을 찾을 수 없습니다.');
       expect(e.fieldErrors, isEmpty);
       expect(e.isServerError, isFalse);
     });
@@ -148,6 +149,7 @@ void main() {
 
       expect(e.statusCode, 400);
       expect(e.code, isNull);
+      expect(e.message, isNull);
     });
   });
 
@@ -169,6 +171,7 @@ void main() {
 
       expect(e.statusCode, 500);
       expect(e.code, isNull);
+      expect(e.message, isNull);
       expect(e.isServerError, isTrue);
     });
 
