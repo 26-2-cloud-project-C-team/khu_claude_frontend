@@ -1,0 +1,56 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:team_frontend/core/widgets/app_button.dart';
+import 'package:team_frontend/features/feedback/models/today_review.dart';
+import 'package:team_frontend/features/feedback/viewmodels/review_view_model.dart';
+import 'package:team_frontend/features/feedback/views/review_page.dart';
+
+import '../../../helpers/pump_test_app.dart';
+import '../../../fakes/fake_feedback_repository.dart';
+
+void main() {
+  testWidgets('별점을 고르면 다음이 켜지고 별점만 등록할 수 있다', (tester) async {
+    final repo = FakeFeedbackRepository();
+    final vm = ReviewViewModel(repository: repo, spaceId: 1);
+    var done = 0;
+    await tester.pumpTestApp(
+      ReviewPage(viewModel: vm, spaceName: '중앙도서관 4층 열람실', onDone: () => done++, onClose: () {}),
+    );
+    await tester.pumpAndSettle();
+
+    final next = find.widgetWithText(AppButton, '다음');
+    expect(tester.widget<AppButton>(next).onPressed, isNull);
+
+    await tester.tap(find.bySemanticsLabel('4점'));
+    await tester.pump();
+    expect(find.text('4점 · 만족해요'), findsOneWidget);
+
+    await tester.tap(next);
+    await tester.pump();
+    expect(find.text('간단한 후기 작성을 부탁드려요'), findsOneWidget);
+
+    await tester.tap(find.text('후기 없이 별점만 등록'));
+    await tester.pumpAndSettle();
+
+    expect(done, 1);
+    expect(repo.reviews.single.rating, 4);
+    expect(repo.reviews.single.text, isNull);
+  });
+
+  testWidgets('오늘 남긴 후기가 있으면 채워서 열고 별점만 등록을 숨긴다', (tester) async {
+    final repo = FakeFeedbackRepository(
+      todayReview: const TodayReview(rating: 5, text: '창가 쪽이 좋아요'),
+    );
+    final vm = ReviewViewModel(repository: repo, spaceId: 1);
+    await tester.pumpTestApp(
+      ReviewPage(viewModel: vm, spaceName: '중앙도서관 4층 열람실', onDone: () {}, onClose: () {}),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('5점 · 최고예요'), findsOneWidget);
+    await tester.tap(find.widgetWithText(AppButton, '다음'));
+    await tester.pump();
+
+    expect(find.text('창가 쪽이 좋아요'), findsOneWidget);
+    expect(find.text('후기 없이 별점만 등록'), findsNothing);
+  });
+}

@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:team_frontend/core/map/app_map.dart';
+import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/core/map/kakao_map.dart';
 
 import '../../fakes/fake_map_view_factory.dart';
 import '../../helpers/pump_test_app.dart';
 
-const _origin = LatLng(37.2467, 127.0803);
-const _destination = LatLng(37.2441, 127.0817);
+const _origin = GeoPoint(37.2467, 127.0803);
+const _destination = GeoPoint(37.2441, 127.0817);
 
 /// 길찾기 화면이 지도를 쓰는 방식을 줄인 예시.
 class _DirectionsExample extends StatefulWidget {
   const _DirectionsExample({required this.current});
 
-  final LatLng current;
+  final GeoPoint current;
 
   @override
   State<_DirectionsExample> createState() => _DirectionsExampleState();
@@ -77,7 +78,7 @@ void main() {
 
     testWidgets("'현재 위치로'를 누르면 현재 위치로 옮긴다", (tester) async {
       final map = FakeMapViewFactory();
-      const current = LatLng(37.2455, 127.0810);
+      const current = GeoPoint(37.2455, 127.0810);
 
       await tester.pumpTestApp(
         const _DirectionsExample(current: current),
@@ -96,10 +97,10 @@ void main() {
         {'lat': 37.2467, 'lng': 127.0803},
         {'lat': 37.2441, 'lng': 127},
       ])
-        LatLng.fromJson(point),
+        GeoPoint.fromJson(point),
     ];
 
-    expect(path, const [LatLng(37.2467, 127.0803), LatLng(37.2441, 127.0)]);
+    expect(path, const [GeoPoint(37.2467, 127.0803), GeoPoint(37.2441, 127.0)]);
   });
 
   testWidgets('카카오맵 구현은 웹이 아니면 안내 문구를 보여준다', (tester) async {

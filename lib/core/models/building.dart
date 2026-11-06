@@ -1,3 +1,5 @@
+import '../utils/geo.dart';
+
 class Building {
   const Building({
     required this.id,
@@ -28,6 +30,8 @@ class Building {
   final double lat;
   final double lng;
   final FloorRange floorRange;
+
+  GeoPoint get point => GeoPoint(lat, lng);
 
   @override
   bool operator ==(Object other) => other is Building && other.id == id;
