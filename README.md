@@ -11,6 +11,8 @@ fvm flutter pub get
 fvm flutter run -d chrome
 ```
 
+API는 운영과 같은 origin에서 호출한다. 개발 서버가 `/api/…` 요청을 로컬 API 서버로 넘기며, 설정은 `web_dev_config.yaml`에 있다. 기본값은 `http://localhost:8080`이고, API 서버 주소가 다르면 `target`을 바꾼다.
+
 ## 테스트
 
 Unit·Widget Test는 CI에서도 돈다.

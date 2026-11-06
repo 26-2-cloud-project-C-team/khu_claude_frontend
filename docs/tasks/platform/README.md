@@ -28,6 +28,4 @@ B·C는 3~10번이 끝나기 전에도 Fake Repository로 ViewModel과 Unit Test
 
 | 항목 | 관련 작업 |
 | --- | --- |
-| HTTP 패키지(`http` / `dio`) | 01, 06 |
-| 로컬 개발 서버의 `/api/…` 프록시 구성(운영은 같은 origin으로 확정) | 06 |
 | 카카오 개발자 앱 키와 허용 도메인 | 12 |
