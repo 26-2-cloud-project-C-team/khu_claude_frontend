@@ -1,4 +1,4 @@
-import '../models/reinspection_category.dart';
+import '../../../core/models/reinspection_category.dart';
 import '../models/today_review.dart';
 
 /// 이용 의견·재조사 요청 API(U4·U5·U6·U7). 기기 쿠키 세션 기준으로 서버가 중복을 막는다.

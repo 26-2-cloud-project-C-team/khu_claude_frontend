@@ -1,5 +1,5 @@
 import 'package:team_frontend/core/models/building.dart';
-import 'package:team_frontend/core/models/noise.dart';
+import 'package:team_frontend/core/models/noise_level.dart';
 import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/features/search/models/candidate.dart';
 
@@ -50,7 +50,7 @@ CandidateDetail sampleCandidate(
     maxPerTable: 8,
     chargeableTableCount: chargeableTableCount,
     freeWifi: true,
-    noise: Noise.quiet,
+    noise: NoiseLevel.quiet,
     isCafe: false,
   );
 }

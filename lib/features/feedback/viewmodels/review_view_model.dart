@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/models/rating.dart' as rating_rules;
 import '../data/feedback_repository.dart';
 import '../models/rating.dart' as rating_rules;
 

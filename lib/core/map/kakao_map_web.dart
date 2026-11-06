@@ -4,6 +4,7 @@ import 'dart:js_interop';
 import 'package:flutter/widgets.dart';
 import 'package:web/web.dart' as web;
 
+import '../utils/geo.dart';
 import 'app_map.dart';
 import 'map_placeholder.dart';
 
@@ -17,7 +18,7 @@ class KakaoMapView extends StatefulWidget {
   });
 
   final String appKey;
-  final LatLng initialCenter;
+  final GeoPoint initialCenter;
   final MapOverlays overlays;
   final ValueChanged<MapController>? onCreated;
 
@@ -184,7 +185,7 @@ class _KakaoMapController implements MapController {
 
   @override
   void fitBounds(
-    List<LatLng> points, {
+    List<GeoPoint> points, {
     EdgeInsets padding = const EdgeInsets.all(48),
   }) {
     if (points.isEmpty) return;
@@ -202,10 +203,10 @@ class _KakaoMapController implements MapController {
   }
 
   @override
-  void moveTo(LatLng point) => map.panTo(_latLng(point));
+  void moveTo(GeoPoint point) => map.panTo(_latLng(point));
 }
 
-_KLatLng _latLng(LatLng point) => _KLatLng(point.lat, point.lng);
+_KLatLng _latLng(GeoPoint point) => _KLatLng(point.lat, point.lng);
 
 Future<void>? _sdkLoading;
 
@@ -237,7 +238,7 @@ Future<void> _loadSdk(String appKey) {
 @JS('kakao.maps.load')
 external void _kakaoMapsLoad(JSFunction callback);
 
-@JS('kakao.maps.LatLng')
+@JS('kakao.maps.GeoPoint')
 extension type _KLatLng._(JSObject _) implements JSObject {
   external factory _KLatLng(double lat, double lng);
 }

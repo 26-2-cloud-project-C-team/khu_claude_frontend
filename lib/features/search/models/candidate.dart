@@ -1,13 +1,6 @@
-import '../../../core/models/noise.dart';
-import '../../../core/models/photo_tag.dart';
+import '../../../core/models/noise_level.dart';
+import '../../../core/models/space_photo.dart';
 import '../../../core/utils/geo.dart';
-
-class SpacePhoto {
-  const SpacePhoto({required this.url, this.tag});
-
-  final String url;
-  final PhotoTag? tag;
-}
 
 class SpaceReview {
   const SpaceReview({required this.rating, required this.createdAt, this.text});
@@ -91,7 +84,7 @@ class CandidateDetail {
   final int maxPerTable;
   final int chargeableTableCount;
   final bool freeWifi;
-  final Noise noise;
+  final NoiseLevel noise;
   final bool isCafe;
 
   /// 비고(출입·취식 규칙 등). 카페면 화면에서 앞에 '카페'를 붙인다.

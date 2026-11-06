@@ -8,7 +8,7 @@ import '../../../core/widgets/app_screen_parts.dart';
 import '../../../core/widgets/app_selection_mode.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../models/rating.dart';
-import '../models/reinspection_category.dart';
+import '../../../core/models/reinspection_category.dart';
 import '../viewmodels/reinspection_view_model.dart';
 import 'widgets/close_bar.dart';
 

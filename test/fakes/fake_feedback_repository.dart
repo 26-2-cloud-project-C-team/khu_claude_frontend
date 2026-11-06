@@ -1,5 +1,5 @@
 import 'package:team_frontend/features/feedback/data/feedback_repository.dart';
-import 'package:team_frontend/features/feedback/models/reinspection_category.dart';
+import 'package:team_frontend/core/models/reinspection_category.dart';
 import 'package:team_frontend/features/feedback/models/today_review.dart';
 
 class SubmittedReview {

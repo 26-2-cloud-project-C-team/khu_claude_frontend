@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
@@ -493,10 +494,6 @@ class _CandidateBody extends StatelessWidget {
     );
   }
 }
-
-// TODO(A-08): 날짜 포맷 유틸이 core에 들어오면 그쪽으로 바꾼다.
-String formatDate(DateTime d) =>
-    '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 
 class _PhotoHeader extends StatelessWidget {
   const _PhotoHeader({required this.candidate, required this.onTap});
