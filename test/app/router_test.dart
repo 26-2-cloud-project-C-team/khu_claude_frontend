@@ -71,7 +71,12 @@ void main() {
       AppRoutes.adminSpace('space-001'),
     );
 
-    await tester.tap(find.text('이용 규칙과 소음'));
+    final editRow = find.text('이용 규칙과 소음');
+
+    await tester.ensureVisible(editRow);
+    await tester.pumpAndSettle();
+
+    await tester.tap(editRow);
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/admin/spaces/space-001/edit');

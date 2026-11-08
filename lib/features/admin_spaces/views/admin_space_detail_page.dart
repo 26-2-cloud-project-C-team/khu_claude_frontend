@@ -1021,36 +1021,39 @@ class _CategoryRequestRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: const EdgeInsets.only(bottom: 8),
-      title: Text(
-        category.label,
-        style: AppTypography.body1.copyWith(fontWeight: FontWeight.w600),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Material(
+      color: Colors.transparent,
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        title: Text(
+          category.label,
+          style: AppTypography.body1.copyWith(fontWeight: FontWeight.w600),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${requests.length}건', style: AppTypography.body2),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: AppColors.gray400),
+          ],
+        ),
         children: [
-          Text('${requests.length}건', style: AppTypography.body2),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, color: AppColors.gray400),
-        ],
-      ),
-      children: [
-        for (final request in requests)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                request.message.trim().isEmpty
-                    ? '내용 없이 항목만 골랐어요.'
-                    : request.message,
-                style: AppTypography.body2.copyWith(color: AppColors.gray600),
+          for (final request in requests)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  request.message.trim().isEmpty
+                      ? '내용 없이 항목만 골랐어요.'
+                      : request.message,
+                  style: AppTypography.body2.copyWith(color: AppColors.gray600),
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
