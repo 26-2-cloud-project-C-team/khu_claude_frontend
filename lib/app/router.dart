@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../features/admin_auth/views/admin_login_page.dart';
 import '../features/admin_spaces/views/admin_space_list_page.dart';
 import '../features/admin_spaces/views/admin_space_create_page.dart';
+import '../features/admin_spaces/views/admin_space_detail_page.dart';
+import '../features/admin_spaces/views/admin_space_edit_page.dart';
+import '../features/admin_spaces/models/admin_space_edit_section.dart';
 
 abstract final class AppRoutes {
   static const start = '/';
@@ -77,10 +80,23 @@ GoRouter createRouter({String initialLocation = AppRoutes.start}) {
                 builder: (context, state) =>
                     AdminSpaceCreatePage(onBack: () => context.pop()),
               ),
-              _placeholder(
-                ':spaceId',
-                'AD-04 공간 상세·재조사 처리',
-                routes: [_placeholder('edit', 'AD-03 공간 수정')],
+              GoRoute(
+                path: ':spaceId',
+                builder: (context, state) => AdminSpaceDetailPage(
+                  spaceId: state.pathParameters['spaceId']!,
+                  onBack: () => context.pop(),
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) => AdminSpaceEditPage(
+                      spaceId: state.pathParameters['spaceId']!,
+                      section: AdminSpaceEditSection.fromName(
+                        state.uri.queryParameters['section'],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

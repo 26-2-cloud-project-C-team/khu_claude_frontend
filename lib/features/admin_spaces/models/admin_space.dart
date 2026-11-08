@@ -16,4 +16,22 @@ class AdminSpace {
   final int reinspectionRequestCount;
 
   bool get hasReinspectionRequest => reinspectionRequestCount > 0;
+
+  AdminSpace copyWith({
+    String? name,
+    String? location,
+    DateTime? updatedAt,
+    bool? isPublic,
+    int? reinspectionRequestCount,
+  }) {
+    return AdminSpace(
+      id: id,
+      name: name ?? this.name,
+      location: location ?? this.location,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isPublic: isPublic ?? this.isPublic,
+      reinspectionRequestCount:
+          reinspectionRequestCount ?? this.reinspectionRequestCount,
+    );
+  }
 }

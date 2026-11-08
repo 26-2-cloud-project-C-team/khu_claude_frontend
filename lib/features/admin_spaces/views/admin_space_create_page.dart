@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/models/space_photo.dart';
 import '../../../core/widgets/app_step_scaffold.dart';
-import '../viewmodels/admin_space_form_view_model.dart';
-
-import '../models/admin_space.dart';
 import '../data/admin_space_repository.dart';
+import '../models/admin_space.dart';
+import '../models/admin_space_activity.dart';
+import '../models/admin_space_detail.dart';
+import '../models/selected_space_photo.dart';
+import '../viewmodels/admin_space_form_view_model.dart';
 import '../viewmodels/admin_space_list_view_model.dart';
 
 import 'steps/photo_step.dart';
@@ -73,20 +76,57 @@ class _AdminSpaceCreateContent extends StatelessWidget {
 
               if (building == null || floor == null) return;
 
+              final now = DateTime.now();
               final space = AdminSpace(
-                id: 'space-${DateTime.now().microsecondsSinceEpoch}',
+                id: 'space-${now.microsecondsSinceEpoch}',
                 name: viewModel.spaceName.trim(),
                 location:
                     '${building.name} · $floor층 · ${viewModel.detailLocation.trim()}',
-                updatedAt: DateTime.now(),
+                updatedAt: now,
                 isPublic: true,
+              );
+              final photos = <SelectedSpacePhoto>[
+                for (final tag in PhotoTag.values)
+                  if (viewModel.requiredPhotos[tag] != null)
+                    viewModel.requiredPhotos[tag]!,
+                ...viewModel.extraPhotos,
+              ];
+              final detail = AdminSpaceDetail(
+                space: space,
+                photos: photos,
+                purpose: viewModel.purpose?.label ?? '',
+                isCafe: viewModel.cafeEnabled,
+                canTalk: viewModel.conversationEnabled,
+                is24Hours: viewModel.is24Hours,
+                startMinute: viewModel.startMinutes,
+                endMinute: viewModel.endMinutes,
+                noiseLevel: viewModel.noiseLevel.label,
+                tableCount: viewModel.tableCount,
+                maxPeoplePerTable: viewModel.maxPeoplePerTable,
+                chargingTableCount: viewModel.chargingTableCount,
+                hasFreeWifi: viewModel.hasFreeWifi,
+                goodPoints: viewModel.goodPoints,
+                badPoints: viewModel.badPoints,
+                memo: viewModel.memo,
+                surveyor: viewModel.surveyor ?? '',
+                activities: [
+                  AdminSpaceActivity(
+                    id: 'activity-${space.id}',
+                    title: '최초 조사',
+                    description: '공간 정보가 등록되었습니다.',
+                    createdAt: now,
+                    actor: viewModel.surveyor?.trim().isNotEmpty == true
+                        ? viewModel.surveyor!.trim()
+                        : '관리자',
+                  ),
+                ],
               );
 
               try {
                 final repository = context.read<AdminSpaceRepository>();
                 final listViewModel = context.read<AdminSpaceListViewModel>();
 
-                await repository.addSpace(space);
+                await repository.addSpace(space, detail: detail);
                 await listViewModel.refreshAfterCreate();
 
                 if (!context.mounted) return;
