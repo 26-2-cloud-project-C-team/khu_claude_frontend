@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/admin_auth/views/admin_login_page.dart';
+import '../features/admin_spaces/views/admin_space_list_page.dart';
+import '../features/admin_spaces/views/admin_space_create_page.dart';
+import '../features/admin_spaces/views/admin_space_detail_page.dart';
+import '../features/admin_spaces/views/admin_space_edit_page.dart';
+import '../features/admin_spaces/models/admin_space_edit_section.dart';
+
 abstract final class AppRoutes {
   static const start = '/';
   static const search = '/search';
@@ -46,16 +53,50 @@ GoRouter createRouter({String initialLocation = AppRoutes.start}) {
         redirect: (_, state) =>
             state.uri.path == AppRoutes.admin ? AppRoutes.adminSpaces : null,
         routes: [
-          _placeholder('login', 'AD-01 로그인'),
-          _placeholder(
-            'spaces',
-            'AD-02 공간 목록',
+          GoRoute(
+            path: 'login',
+            builder: (_, state) => AdminLoginPage(
+              accessDenied: state.uri.queryParameters['state'] == 'denied',
+              email:
+                  state.uri.queryParameters['email'] ?? 'wkdwowns2@khu.ac.kr',
+            ),
+          ),
+          GoRoute(
+            path: 'spaces',
+            builder: (context, state) => AdminSpaceListPage(
+              onCreate: () {
+                context.push(AppRoutes.adminSpaceNew);
+              },
+              onOpenSpace: (spaceId) {
+                context.push(AppRoutes.adminSpace(spaceId));
+              },
+              onLogout: () {
+                context.go(AppRoutes.adminLogin);
+              },
+            ),
             routes: [
-              _placeholder('new', 'AD-03 공간 등록'),
-              _placeholder(
-                ':spaceId',
-                'AD-04 공간 상세·재조사 처리',
-                routes: [_placeholder('edit', 'AD-03 공간 수정')],
+              GoRoute(
+                path: 'new',
+                builder: (context, state) =>
+                    AdminSpaceCreatePage(onBack: () => context.pop()),
+              ),
+              GoRoute(
+                path: ':spaceId',
+                builder: (context, state) => AdminSpaceDetailPage(
+                  spaceId: state.pathParameters['spaceId']!,
+                  onBack: () => context.pop(),
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) => AdminSpaceEditPage(
+                      spaceId: state.pathParameters['spaceId']!,
+                      section: AdminSpaceEditSection.fromName(
+                        state.uri.queryParameters['section'],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
