@@ -67,6 +67,14 @@ class AdminSpaceListViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshAfterCreate() async {
+    _searchQuery = '';
+    _filter = AdminSpaceFilter.all;
+    notifyListeners();
+
+    await load();
+  }
+
   void setSearchQuery(String value) {
     if (_searchQuery == value) return;
     _searchQuery = value;
