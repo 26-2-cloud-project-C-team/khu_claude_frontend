@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import '../models/building.dart';
+
 /// 위도·경도 한 점.
 class GeoPoint {
   const GeoPoint(this.lat, this.lng);
@@ -36,3 +38,8 @@ const double walkingMetersPerMinute = 70;
 /// 직선거리를 도보 시간(분)으로 바꾼다. 0m여도 1분으로 보여준다.
 int walkingMinutes(double meters) =>
     math.max(1, (meters / walkingMetersPerMinute).ceil());
+
+/// 건물 대표 좌표. 공용 [Building]은 위도 · 경도만 가지므로 거리 계산용 점으로 바꿔 쓴다.
+extension BuildingPoint on Building {
+  GeoPoint get point => GeoPoint(lat, lng);
+}

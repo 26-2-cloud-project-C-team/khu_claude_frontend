@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/feedback_repository.dart';
-import '../models/rating.dart' as rating_rules;
+import '../models/feedback_limits.dart';
+import '../../../core/models/rating.dart' as rating_rules;
 
 enum ReviewStep {
   /// A · 별점(필수)
@@ -16,7 +17,7 @@ class ReviewViewModel extends ChangeNotifier {
   ReviewViewModel({required this._repository, required this.spaceId});
 
   final FeedbackRepository _repository;
-  final int spaceId;
+  final String spaceId;
 
   ReviewStep _step = ReviewStep.rating;
   int? _rating;
@@ -39,7 +40,7 @@ class ReviewViewModel extends ChangeNotifier {
 
   bool get canProceedFromRating => _rating != null;
   int get textLength => _text.length;
-  bool get isTextValid => _text.length <= rating_rules.reviewMaxLength;
+  bool get isTextValid => _text.length <= reviewMaxLength;
 
   /// 오늘 남긴 별점·후기가 있으면 채운 상태로 연다. 실패해도 빈 상태로 진행한다.
   Future<void> load() async {

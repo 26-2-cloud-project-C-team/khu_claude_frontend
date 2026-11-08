@@ -1,0 +1,8 @@
+# `flutter run -d chrome`의 개발 서버 설정. 운영처럼 웹과 API를 같은 origin에 두려고
+# `/api/…` 요청을 로컬 API 서버로 넘긴다. API 서버 주소가 다르면 target만 바꾼다.
+# 포트는 카카오 개발자 콘솔에 등록한 JavaScript SDK 도메인(http://localhost:3000)과 맞춘다.
+server:
+  port: 3000
+  proxy:
+    - target: "http://localhost:8080/"
+      prefix: "/api/"

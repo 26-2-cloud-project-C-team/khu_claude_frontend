@@ -17,8 +17,8 @@ void main() {
 
     expect(vm.rank, 1);
     expect(vm.total, 5);
-    expect(vm.current!.spaceId, 1);
-    expect(vm.nextPreview!.spaceId, 2);
+    expect(vm.current!.spaceId, '1');
+    expect(vm.nextPreview!.spaceId, '2');
     expect(vm.hasPrevious, isFalse);
     expect(vm.isLoading, isFalse);
   });
@@ -29,11 +29,11 @@ void main() {
     vm.next();
     vm.next();
     expect(vm.rank, 3);
-    expect(vm.current!.spaceId, 3);
+    expect(vm.current!.spaceId, '3');
 
     vm.previous();
     expect(vm.rank, 2);
-    expect(vm.nextPreview!.spaceId, 3);
+    expect(vm.nextPreview!.spaceId, '3');
   });
 
   test('마지막 순위에서 next는 아무것도 하지 않고 isLast다', () {
@@ -63,7 +63,7 @@ void main() {
     await vm.load();
 
     expect(repo.spaceCalls, isEmpty);
-    expect(vm.current!.spaceId, 1);
+    expect(vm.current!.spaceId, '1');
   });
 
   group('복구 상태(US-04 ③)', () {
@@ -72,22 +72,22 @@ void main() {
     setUp(() => repo = FakeSearchRepository());
 
     test('공간 하나만 U3로 한 번 불러 보여준다', () async {
-      final vm = CandidateViewModel.restored(repository: repo, spaceId: 7);
+      final vm = CandidateViewModel.restored(repository: repo, spaceId: '7');
       expect(vm.current, isNull);
 
       await vm.load();
 
       expect(vm.isRestored, isTrue);
-      expect(repo.spaceCalls, [7]);
-      expect(vm.current!.spaceId, 7);
+      expect(repo.spaceCalls, ['7']);
+      expect(vm.current!.spaceId, '7');
       expect(vm.hasPrevious, isFalse);
       expect(vm.hasNext, isFalse);
       expect(vm.isUnavailable, isFalse);
     });
 
     test('U3가 404면 볼 수 없는 공간이다', () async {
-      repo.missingIds = {7};
-      final vm = CandidateViewModel.restored(repository: repo, spaceId: 7);
+      repo.missingIds = {'7'};
+      final vm = CandidateViewModel.restored(repository: repo, spaceId: '7');
 
       await vm.load();
 
@@ -96,7 +96,7 @@ void main() {
     });
 
     test('불러오는 동안 isLoading이다', () async {
-      final vm = CandidateViewModel.restored(repository: repo, spaceId: 7);
+      final vm = CandidateViewModel.restored(repository: repo, spaceId: '7');
       final states = <bool>[];
       vm.addListener(() => states.add(vm.isLoading));
 

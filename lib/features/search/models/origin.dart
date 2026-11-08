@@ -11,6 +11,9 @@ sealed class Origin {
 
   /// 조건 요약 시트에 보여줄 이름.
   String get label;
+
+  /// U2 `origin` · U7 `origin` 쿼리 값. `building:{buildingId}` 또는 `geo:{lat},{lng}`.
+  String get apiParam;
 }
 
 class CurrentLocationOrigin extends Origin {
@@ -26,6 +29,9 @@ class CurrentLocationOrigin extends Origin {
 
   @override
   String get label => nearestBuilding.name;
+
+  @override
+  String get apiParam => 'geo:${fix.point.lat},${fix.point.lng}';
 }
 
 class BuildingOrigin extends Origin {
@@ -38,6 +44,9 @@ class BuildingOrigin extends Origin {
 
   @override
   String get label => building.name;
+
+  @override
+  String get apiParam => 'building:${building.id}';
 
   @override
   bool operator ==(Object other) => other is BuildingOrigin && other.building == building;

@@ -10,7 +10,7 @@ import '../../../fakes/fake_feedback_repository.dart';
 void main() {
   testWidgets('별점을 고르면 다음이 켜지고 별점만 등록할 수 있다', (tester) async {
     final repo = FakeFeedbackRepository();
-    final vm = ReviewViewModel(repository: repo, spaceId: 1);
+    final vm = ReviewViewModel(repository: repo, spaceId: '1');
     var done = 0;
     await tester.pumpTestApp(
       ReviewPage(viewModel: vm, spaceName: '중앙도서관 4층 열람실', onDone: () => done++, onClose: () {}),
@@ -40,7 +40,7 @@ void main() {
     final repo = FakeFeedbackRepository(
       todayReview: const TodayReview(rating: 5, text: '창가 쪽이 좋아요'),
     );
-    final vm = ReviewViewModel(repository: repo, spaceId: 1);
+    final vm = ReviewViewModel(repository: repo, spaceId: '1');
     await tester.pumpTestApp(
       ReviewPage(viewModel: vm, spaceName: '중앙도서관 4층 열람실', onDone: () {}, onClose: () {}),
     );

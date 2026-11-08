@@ -13,7 +13,7 @@ void main() {
     var done = 0;
     await tester.pumpTestApp(
       ReinspectionPage(
-        viewModel: ReinspectionViewModel(repository: repo, spaceId: 1),
+        viewModel: ReinspectionViewModel(repository: repo, spaceId: '1'),
         onDone: () => done++,
         onClose: () {},
       ),

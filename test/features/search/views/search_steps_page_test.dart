@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:team_frontend/core/widgets/app_button.dart';
 import 'package:team_frontend/core/location/location_repository.dart';
 import 'package:team_frontend/core/models/purpose.dart';
+import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/features/search/models/search_condition.dart';
 import 'package:team_frontend/features/search/models/search_result.dart';
 import 'package:team_frontend/features/search/viewmodels/search_flow_view_model.dart';
@@ -99,7 +100,7 @@ void main() {
     await tester.tap(find.text('공간 찾기'));
     await tester.pumpAndSettle();
 
-    expect(searched!.candidates.map((c) => c.spaceId), [1, 2]);
+    expect(searched!.candidates.map((c) => c.spaceId), ['1', '2']);
   });
 
   testWidgets('첫 단계에서 뒤로 가면 퍼널을 닫는다', (tester) async {

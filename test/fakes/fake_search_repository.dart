@@ -28,19 +28,21 @@ class FakeSearchRepository implements SearchRepository {
   List<ScoredAlternative> alternatives;
 
   /// U3가 404로 답할 공간.
-  Set<int> missingIds;
+  Set<String> missingIds;
 
   /// 서버가 적용했다고 돌려줄 검색 기준 시각.
   DateTime? searchedAt;
   bool failBuildings;
   bool failSearch;
 
+  int buildingCalls = 0;
   final List<SearchCondition> searchCalls = [];
   final List<DateTime?> searchedAtCalls = [];
-  final List<int> spaceCalls = [];
+  final List<String> spaceCalls = [];
 
   @override
   Future<List<Building>> fetchBuildings() async {
+    buildingCalls++;
     if (failBuildings) throw Exception('U1 실패');
     return buildings;
   }
@@ -60,7 +62,7 @@ class FakeSearchRepository implements SearchRepository {
   }
 
   @override
-  Future<CandidateDetail?> fetchSpace(int spaceId) async {
+  Future<CandidateDetail?> fetchSpace(String spaceId) async {
     spaceCalls.add(spaceId);
     return missingIds.contains(spaceId) ? null : sampleCandidate(spaceId);
   }

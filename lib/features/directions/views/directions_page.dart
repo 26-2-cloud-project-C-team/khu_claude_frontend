@@ -177,8 +177,8 @@ class _RouteSheet extends StatelessWidget {
     final title = moving
         ? (vm.isApproaching
               ? '곧 도착해요'
-              : '${d.buildingName}까지 도보 ${route?.minutes ?? d.walkMinutes}분')
-        : '${d.floor}으로 올라가세요';
+              : '${d.buildingName}까지 도보 ${route?.minutes ?? d.walkMinutes ?? '-'}분')
+        : '${d.floorLabel}으로 올라가세요';
     final sub = moving
         ? (route == null
               ? null
@@ -388,10 +388,11 @@ class _InUseView extends StatelessWidget {
                   Text(d.name, style: AppTypography.h1),
                   const SizedBox(height: AppSpacing.textLine),
                   Text(
-                    '${d.floor} · ${d.locationGuide}',
+                    '${d.floorLabel} · ${d.locationGuide}',
                     style: AppTypography.body2.copyWith(color: AppColors.gray700),
                   ),
-                  if (d.closesAt != null) ...[
+                  // 24시간 운영(open == close)이면 종료 시각이 없다.
+                  if (d.opensAt != d.closesAt) ...[
                     const SizedBox(height: AppSpacing.between),
                     Text(
                       '오늘 ${d.closesAt}까지 이용 가능',

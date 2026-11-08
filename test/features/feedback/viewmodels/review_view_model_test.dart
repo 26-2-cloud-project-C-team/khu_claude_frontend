@@ -10,7 +10,7 @@ void main() {
 
   setUp(() {
     repo = FakeFeedbackRepository();
-    vm = ReviewViewModel(repository: repo, spaceId: 7);
+    vm = ReviewViewModel(repository: repo, spaceId: '7');
   });
 
   test('별점을 고르기 전에는 다음으로 갈 수 없다', () {

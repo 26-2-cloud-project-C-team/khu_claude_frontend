@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_format.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_badge.dart';
@@ -361,9 +362,10 @@ class _CandidateBody extends StatelessWidget {
               Text(c.name, style: AppTypography.h2),
               const SizedBox(height: AppSpacing.textLine),
               Text(
-                restored
+                // 복구 상태(U3)에는 출발점이 없어 도보 시간 · 직선거리가 오지 않는다.
+                restored || c.walkMinutes == null
                     ? c.buildingName
-                    : '${c.buildingName} · 도보 ${c.walkMinutes}분 · 직선 ${c.distanceMeters.round()}m',
+                    : '${c.buildingName} · 도보 ${c.walkMinutes}분 · 직선 ${c.distanceMeters}m',
                 style: AppTypography.body2.copyWith(color: AppColors.gray700),
               ),
               const SizedBox(height: AppSpacing.between),
@@ -380,7 +382,7 @@ class _CandidateBody extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.item),
-              _InfoRow('이용 시간', c.opensAt == null ? '오늘 휴무' : '오늘 ${c.opensAt} – ${c.closesAt}'),
+              _InfoRow('이용 시간', '오늘 ${formatHours(c.opensAt, c.closesAt)}'),
               _InfoRow('테이블', '${c.tableCount}개 · 최대 ${c.maxPerTable}명'),
               _InfoRow('충전', '충전되는 테이블 ${c.chargeablePercent}%'),
               _InfoRow('와이파이', c.freeWifi ? '무료' : '없음'),
@@ -419,7 +421,7 @@ class _CandidateBody extends StatelessWidget {
         _Section(
           title: '내부 위치 찾기',
           children: [
-            Text(c.floor, style: AppTypography.h3),
+            Text(c.floorLabel, style: AppTypography.h3),
             const SizedBox(height: AppSpacing.textLine),
             Text(c.locationGuide, style: AppTypography.body2.copyWith(color: AppColors.gray700)),
             const SizedBox(height: AppSpacing.between),
@@ -466,21 +468,24 @@ class _CandidateBody extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.cardPadding),
             ],
-            for (final a in c.answers) ...[
+            for (final a in c.results) ...[
               const SizedBox(height: AppSpacing.inside),
               AppCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Q. ${a.question}', style: AppTypography.body2),
+                    Text(
+                      'Q. ${a.categories.map((c) => c.label).join(' · ')} 제보',
+                      style: AppTypography.body2,
+                    ),
                     const SizedBox(height: AppSpacing.textLine),
                     Text(
-                      '${formatDate(a.checkedAt)} 재확인',
+                      '${formatDate(a.resolvedAt)} 재확인',
                       style: AppTypography.caption.copyWith(color: AppColors.gray500),
                     ),
                     const SizedBox(height: AppSpacing.textLine),
                     Text(
-                      'A. ${a.answer}',
+                      'A. ${a.result}',
                       style: AppTypography.body2.copyWith(color: AppColors.gray700),
                     ),
                   ],
@@ -493,10 +498,6 @@ class _CandidateBody extends StatelessWidget {
     );
   }
 }
-
-// TODO(A-08): 날짜 포맷 유틸이 core에 들어오면 그쪽으로 바꾼다.
-String formatDate(DateTime d) =>
-    '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 
 class _PhotoHeader extends StatelessWidget {
   const _PhotoHeader({required this.candidate, required this.onTap});

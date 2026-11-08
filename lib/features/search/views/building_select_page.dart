@@ -110,7 +110,7 @@ class _BuildingSelectPageState extends State<BuildingSelectPage> {
                       style: AppTypography.caption.copyWith(color: AppColors.gray500),
                     ),
                     const SizedBox(height: AppSpacing.inside),
-                    if (_vm.buildings.isEmpty && !_vm.buildingsFailed)
+                    if (!_vm.buildingsLoaded && !_vm.buildingsFailed)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: AppSpacing.section),
                         child: Center(child: CircularProgressIndicator(color: AppColors.primary)),

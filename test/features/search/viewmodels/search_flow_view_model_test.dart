@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:team_frontend/core/location/location_repository.dart';
 import 'package:team_frontend/core/models/purpose.dart';
+import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/features/search/models/origin.dart';
 import 'package:team_frontend/features/search/models/requirement.dart';
 import 'package:team_frontend/features/search/models/search_condition.dart';
@@ -88,6 +89,17 @@ void main() {
 
       expect(vm.originStatus, OriginStatus.unavailable);
       expect(vm.buildingsFailed, isTrue);
+    });
+
+    test('공개 공간이 있는 건물이 없어도(빈 목록) 받은 것으로 보고 다시 부르지 않는다', () async {
+      search.buildings = const [];
+
+      await vm.loadBuildings();
+      await vm.loadBuildings();
+
+      expect(vm.buildingsLoaded, isTrue);
+      expect(vm.buildings, isEmpty);
+      expect(search.buildingCalls, 1);
     });
 
     test('건물을 고르면 출발점이 되고 인원 단계로 간다 (목적 단계는 건너뛴다)', () {
@@ -200,7 +212,7 @@ void main() {
 
       final result = await vm.search();
 
-      expect(result!.candidates.map((c) => c.spaceId), [1, 2, 3]);
+      expect(result!.candidates.map((c) => c.spaceId), ['1', '2', '3']);
       expect(search.searchCalls.single, vm.condition);
       expect(vm.lastResult, same(result));
       expect(vm.isSearching, isFalse);

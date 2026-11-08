@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'user_routes.dart';
+
 abstract final class AppRoutes {
   static const start = '/';
   static const search = '/search';
@@ -12,6 +14,10 @@ abstract final class AppRoutes {
   static const reinspection = '/directions/reinspection';
   static const done = '/done';
 
+  /// 공유 링크 · 새로고침 복구(US-04 ③). `/spaces/{spaceId}`
+  static const restore = '/spaces';
+  static String restoreSpace(String spaceId) => '$restore/$spaceId';
+
   static const admin = '/admin';
   static const adminLogin = '/admin/login';
   static const adminSpaces = '/admin/spaces';
@@ -21,24 +27,19 @@ abstract final class AppRoutes {
 }
 
 GoRouter createRouter({String initialLocation = AppRoutes.start}) {
+  final flow = SearchFlowHolder();
+
   return GoRouter(
     initialLocation: initialLocation,
     routes: [
       // 검색 조건을 US-00부터 공유해야 하므로 사용자 화면을 한 ShellRoute로 묶는다.
       // SearchFlowViewModel은 이 builder에서 child를 감싸 제공한다.
       ShellRoute(
-        builder: (_, _, child) => child,
-        routes: [
-          _placeholder(AppRoutes.start, 'US-00 시작'),
-          _placeholder(AppRoutes.search, 'US-01·02 검색 조건'),
-          _placeholder(AppRoutes.buildingSelect, 'US-03 출발 건물 선택'),
-          _placeholder(AppRoutes.candidates, 'US-04 후보 상세'),
-          _placeholder(AppRoutes.noResult, 'US-05 결과 없음'),
-          _placeholder(AppRoutes.directions, 'US-06 길찾기·이용 중'),
-          _placeholder(AppRoutes.review, 'US-07 이용 의견'),
-          _placeholder(AppRoutes.reinspection, 'US-07 재조사 요청'),
-          _placeholder(AppRoutes.done, 'US-08 완료'),
-        ],
+        builder: (context, _, child) {
+          flow.ensure(context);
+          return child;
+        },
+        routes: userRoutes(flow),
       ),
       GoRoute(
         path: AppRoutes.admin,

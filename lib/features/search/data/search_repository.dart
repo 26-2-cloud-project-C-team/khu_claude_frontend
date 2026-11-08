@@ -13,5 +13,5 @@ abstract class SearchRepository {
   Future<SearchResult> search(SearchCondition condition, {DateTime? searchedAt});
 
   /// U3. 공간 하나. 비공개 · 삭제(404)면 null. 검색 결과 없이 복구할 때(US-04 ③)만 쓴다.
-  Future<CandidateDetail?> fetchSpace(int spaceId);
+  Future<CandidateDetail?> fetchSpace(String spaceId);
 }

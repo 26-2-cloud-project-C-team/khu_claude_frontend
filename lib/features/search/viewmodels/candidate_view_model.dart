@@ -15,13 +15,13 @@ class CandidateViewModel extends ChangeNotifier {
 
   /// US-04 ③ 복구 상태. 공유 링크 · 앱 다시 열기 · 검색 결과 없이 US-06에서 돌아왔을 때
   /// 검색 결과 없이 공간 하나만 U3로 한 번 불러 보여준다.
-  CandidateViewModel.restored({required SearchRepository this._repository, required int spaceId})
+  CandidateViewModel.restored({required SearchRepository this._repository, required String spaceId})
     : _candidates = const [],
       _restoreId = spaceId,
       isRestored = true;
 
   final SearchRepository? _repository;
-  final int? _restoreId;
+  final String? _restoreId;
 
   /// 검색 결과 없이 공간 하나만 복구했는지. View는 순위 · 조건 · 거리 · 다음 후보를 숨긴다.
   final bool isRestored;

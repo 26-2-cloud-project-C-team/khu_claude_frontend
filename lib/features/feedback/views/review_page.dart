@@ -6,7 +6,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_rating.dart';
 import '../../../core/widgets/app_screen_parts.dart';
 import '../../../core/widgets/app_text_field.dart';
-import '../models/rating.dart';
+import '../models/feedback_limits.dart';
 import '../viewmodels/review_view_model.dart';
 import 'widgets/close_bar.dart';
 

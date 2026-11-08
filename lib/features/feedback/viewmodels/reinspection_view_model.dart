@@ -1,15 +1,15 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/feedback_repository.dart';
-import '../models/rating.dart';
-import '../models/reinspection_category.dart';
+import '../models/feedback_limits.dart';
+import '../../../core/models/reinspection_category.dart';
 
 /// 재조사 요청(US-07 C).
 class ReinspectionViewModel extends ChangeNotifier {
   ReinspectionViewModel({required this._repository, required this.spaceId});
 
   final FeedbackRepository _repository;
-  final int spaceId;
+  final String spaceId;
 
   final Set<ReinspectionCategory> _categories = {};
   String _detail = '';

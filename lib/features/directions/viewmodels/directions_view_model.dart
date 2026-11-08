@@ -26,6 +26,7 @@ class DirectionsViewModel extends ChangeNotifier {
   }) : _directions = directionsRepository,
        _location = locationRepository,
        _start = origin?.point,
+       _originParam = origin?.apiParam,
        _originLabel = origin?.label,
        _resolvingOrigin = origin == null;
 
@@ -38,6 +39,9 @@ class DirectionsViewModel extends ChangeNotifier {
 
   /// 경로의 출발점. 복구 중 아직 구하지 못했으면 null.
   GeoPoint? _start;
+
+  /// U7 `origin` 값(`building:{id}` 또는 `geo:{lat},{lng}`).
+  String? _originParam;
   String? _originLabel;
   bool _resolvingOrigin;
 
@@ -80,6 +84,7 @@ class DirectionsViewModel extends ChangeNotifier {
         return;
       }
       _start = fix.point;
+      _originParam = 'geo:${fix.point.lat},${fix.point.lng}';
     }
     await _fetchRoute();
   }
@@ -88,6 +93,7 @@ class DirectionsViewModel extends ChangeNotifier {
   /// 경로(U7)를 불러 이동 중(US-06 ① A)으로 전환한다.
   Future<void> chooseOrigin(Building building) async {
     _start = building.point;
+    _originParam = 'building:${building.id}';
     _originLabel = building.name;
     _resolvingOrigin = false;
     _stage = DirectionsStage.moving;
@@ -109,8 +115,12 @@ class DirectionsViewModel extends ChangeNotifier {
   Future<void> _fetchRoute() async {
     final from = _start!;
     try {
-      _route = await _directions.fetchWalkingRoute(from: from, to: destination.buildingLocation);
+      _route = await _directions.fetchWalkingRoute(
+        origin: _originParam!,
+        destination: 'building:${destination.buildingId}',
+      );
     } on Exception {
+      // 서버도 카카오 실패 시 직선 경로를 주지만, U7 자체가 실패하면 여기서 직선으로 그린다.
       _route = WalkingRoute.straight(from, destination.buildingLocation);
     }
     _notify();

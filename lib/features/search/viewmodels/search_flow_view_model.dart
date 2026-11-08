@@ -40,6 +40,7 @@ class SearchFlowViewModel extends ChangeNotifier {
   SearchStep _step = SearchStep.origin;
   OriginStatus _originStatus = OriginStatus.idle;
   List<Building> _buildings = const [];
+  bool _buildingsLoaded = false;
   bool _buildingsFailed = false;
   bool _isSearching = false;
   Object? _searchError;
@@ -53,6 +54,9 @@ class SearchFlowViewModel extends ChangeNotifier {
   OriginStatus get originStatus => _originStatus;
   List<Building> get buildings => _buildings;
   bool get buildingsFailed => _buildingsFailed;
+
+  /// U1 응답을 받았는지. 공개 공간이 없으면 목록이 비어 있어도 받은 것이다.
+  bool get buildingsLoaded => _buildingsLoaded;
   bool get isSearching => _isSearching;
   Object? get searchError => _searchError;
   SearchResult? get lastResult => _lastResult;
@@ -158,9 +162,10 @@ class SearchFlowViewModel extends ChangeNotifier {
 
   /// U1 건물 목록. 한 번 받으면 다시 부르지 않는다.
   Future<List<Building>> loadBuildings() async {
-    if (_buildings.isNotEmpty) return _buildings;
+    if (_buildingsLoaded) return _buildings;
     try {
       _buildings = await _search.fetchBuildings();
+      _buildingsLoaded = true;
       _buildingsFailed = false;
     } on Exception {
       _buildingsFailed = true;

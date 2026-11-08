@@ -13,7 +13,7 @@ void main() {
   Future<CandidateViewModel> pumpPage(
     WidgetTester tester,
     List<int> ids, {
-    ValueChanged<int>? onGo,
+    ValueChanged<String>? onGo,
   }) async {
     final vm = CandidateViewModel(
       result: SearchResult(
@@ -56,25 +56,25 @@ void main() {
   });
 
   testWidgets('여기로 갈게요는 현재 후보를 넘긴다', (tester) async {
-    int? went;
+    String? went;
     await pumpPage(tester, [1, 2], onGo: (id) => went = id);
 
     await tester.tap(find.text('여기로 갈게요'));
 
-    expect(went, 1);
+    expect(went, '1');
   });
 
   group('복구 상태(US-04 ③)', () {
     Future<void> pumpRestored(
       WidgetTester tester, {
-      Set<int> missingIds = const {},
+      Set<String> missingIds = const {},
       VoidCallback? onClose,
       VoidCallback? onUnavailable,
-      ValueChanged<int>? onGo,
+      ValueChanged<String>? onGo,
     }) async {
       final vm = CandidateViewModel.restored(
         repository: FakeSearchRepository(missingIds: missingIds),
-        spaceId: 7,
+        spaceId: '7',
       );
       await tester.pumpTestApp(
         CandidatePage.restored(
@@ -113,17 +113,17 @@ void main() {
     });
 
     testWidgets('여기로 갈게요는 복구한 공간을 넘긴다', (tester) async {
-      int? went;
+      String? went;
       await pumpRestored(tester, onGo: (id) => went = id);
 
       await tester.tap(find.text('여기로 갈게요'));
 
-      expect(went, 7);
+      expect(went, '7');
     });
 
     testWidgets('볼 수 없는 공간이면 알린다', (tester) async {
       var unavailable = 0;
-      await pumpRestored(tester, missingIds: {7}, onUnavailable: () => unavailable++);
+      await pumpRestored(tester, missingIds: {'7'}, onUnavailable: () => unavailable++);
 
       expect(unavailable, 1);
     });

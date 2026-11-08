@@ -1,27 +1,106 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:team_frontend/app/router.dart';
+import 'package:team_frontend/core/location/location_repository.dart';
+import 'package:team_frontend/features/directions/data/directions_repository.dart';
+import 'package:team_frontend/features/feedback/data/feedback_repository.dart';
+import 'package:team_frontend/features/search/data/search_repository.dart';
+
+import '../fakes/fake_directions_repository.dart';
+import '../fakes/fake_feedback_repository.dart';
+import '../fakes/fake_location_repository.dart';
+import '../fakes/fake_search_repository.dart';
+import '../fakes/sample_space.dart';
 
 void main() {
-  Future<GoRouter> pumpAt(WidgetTester tester, String location) async {
+  Future<GoRouter> pumpAt(
+    WidgetTester tester,
+    String location, {
+    FakeSearchRepository? search,
+  }) async {
     final router = createRouter(initialLocation: location);
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<SearchRepository>.value(
+            value: search ?? FakeSearchRepository(buildings: const [engineering, centralLibrary]),
+          ),
+          Provider<LocationRepository>.value(
+            value: FakeLocationRepository(permission: LocationPermissionStatus.denied),
+          ),
+          Provider<DirectionsRepository>.value(value: FakeDirectionsRepository()),
+          Provider<FeedbackRepository>.value(value: FakeFeedbackRepository()),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
     await tester.pumpAndSettle();
     return router;
   }
 
-  final screens = {
-    AppRoutes.start: 'US-00 시작',
-    AppRoutes.search: 'US-01·02 검색 조건',
-    AppRoutes.buildingSelect: 'US-03 출발 건물 선택',
-    AppRoutes.candidates: 'US-04 후보 상세',
-    AppRoutes.noResult: 'US-05 결과 없음',
-    AppRoutes.directions: 'US-06 길찾기·이용 중',
-    AppRoutes.review: 'US-07 이용 의견',
-    AppRoutes.reinspection: 'US-07 재조사 요청',
-    AppRoutes.done: 'US-08 완료',
+  group('사용자 화면', () {
+    testWidgets('/ 경로가 US-00 시작 화면을 연다', (tester) async {
+      await pumpAt(tester, AppRoutes.start);
+
+      expect(find.text('어떤 공간을 찾아 드릴까요?'), findsOneWidget);
+    });
+
+    testWidgets('목적 타일을 누르면 검색 조건으로 가고, 위치가 없으면 US-03을 연다', (tester) async {
+      final router = await pumpAt(tester, AppRoutes.start);
+
+      await tester.tap(find.text('개인 작업'));
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.path, AppRoutes.buildingSelect);
+      expect(find.text('어느 건물에서 출발하시나요?'), findsOneWidget);
+    });
+
+    // 검색 조건 · 결과 · 고른 공간은 메모리에만 있으므로 새로고침하면 US-00부터 다시 시작한다.
+    for (final location in [
+      AppRoutes.search,
+      AppRoutes.buildingSelect,
+      AppRoutes.candidates,
+      AppRoutes.noResult,
+      AppRoutes.directions,
+      AppRoutes.review,
+      AppRoutes.reinspection,
+    ]) {
+      testWidgets('$location는 값 없이 열면 US-00으로 보낸다', (tester) async {
+        final router = await pumpAt(tester, location);
+
+        expect(router.state.uri.path, AppRoutes.start);
+      });
+    }
+
+    testWidgets('/spaces/{spaceId}는 공간 하나를 복구 상태(US-04 ③)로 연다', (tester) async {
+      await pumpAt(tester, AppRoutes.restoreSpace('7'));
+
+      expect(find.text('공간 7'), findsOneWidget);
+      expect(find.text('검색 조건이 사라져서 공간 정보만 보여 드려요'), findsOneWidget);
+    });
+
+    testWidgets('볼 수 없는 공간이면 US-00으로 보내며 토스트를 띄운다', (tester) async {
+      final router = await pumpAt(
+        tester,
+        AppRoutes.restoreSpace('7'),
+        search: FakeSearchRepository(missingIds: {'7'}),
+      );
+
+      expect(router.state.uri.path, AppRoutes.start);
+      expect(find.text('지금은 볼 수 없는 공간이에요'), findsOneWidget);
+    });
+
+    testWidgets('/done은 US-08 완료 화면을 연다', (tester) async {
+      await pumpAt(tester, '${AppRoutes.done}?kind=reinspection');
+
+      expect(find.text('요청을 보냈어요'), findsOneWidget);
+    });
+  });
+
+  final adminScreens = {
     AppRoutes.adminLogin: 'AD-01 로그인',
     AppRoutes.adminSpaces: 'AD-02 공간 목록',
     AppRoutes.adminSpaceNew: 'AD-03 공간 등록',
@@ -29,7 +108,7 @@ void main() {
     AppRoutes.adminSpaceEdit('7'): 'AD-03 공간 수정 (7)',
   };
 
-  for (final MapEntry(key: location, value: screen) in screens.entries) {
+  for (final MapEntry(key: location, value: screen) in adminScreens.entries) {
     testWidgets('$location 경로가 $screen 화면을 연다', (tester) async {
       await pumpAt(tester, location);
 
