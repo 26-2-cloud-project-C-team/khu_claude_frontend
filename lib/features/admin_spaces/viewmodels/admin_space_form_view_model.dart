@@ -110,8 +110,8 @@ class AdminSpaceFormViewModel extends ChangeNotifier {
 
   NoiseLevel _noiseLevel = NoiseLevel.quiet;
 
-  bool get isCafe => _isCafe;
-  bool get canTalk => _canTalk;
+  bool get cafeEnabled => _isCafe;
+  bool get conversationEnabled => _canTalk;
   bool get is24Hours => _is24Hours;
 
   int get startMinutes => _startMinutes;
@@ -119,39 +119,40 @@ class AdminSpaceFormViewModel extends ChangeNotifier {
 
   NoiseLevel get noiseLevel => _noiseLevel;
 
-  void setCafe(bool value) {
+  // 3단계 상태 변경
+  void updateCafeEnabled(bool value) {
     _isCafe = value;
     notifyListeners();
   }
 
-  void setCanTalk(bool value) {
+  void updateConversationEnabled(bool value) {
     _canTalk = value;
     notifyListeners();
   }
 
-  void setNoiseLevel(NoiseLevel value) {
-    _noiseLevel = value;
-    notifyListeners();
-  }
-
-  void setOperatingHours({required int startMinutes, required int endMinutes}) {
-    _startMinutes = startMinutes;
-    _endMinutes = endMinutes;
-    _is24Hours = false;
-    notifyListeners();
-  }
-
-  void set24Hours(bool value) {
+  void update24HourAvailability(bool value) {
     _is24Hours = value;
 
     if (value) {
       _startMinutes = 0;
       _endMinutes = 1440;
-    } else {
-      _startMinutes = 9 * 60;
-      _endMinutes = 22 * 60;
     }
 
+    notifyListeners();
+  }
+
+  void updateOperatingHours({
+    required int startMinutes,
+    required int endMinutes,
+  }) {
+    _is24Hours = false;
+    _startMinutes = startMinutes.clamp(0, 1439).toInt();
+    _endMinutes = endMinutes.clamp(1, 1440).toInt();
+    notifyListeners();
+  }
+
+  void updateNoiseLevel(NoiseLevel value) {
+    _noiseLevel = value;
     notifyListeners();
   }
 
