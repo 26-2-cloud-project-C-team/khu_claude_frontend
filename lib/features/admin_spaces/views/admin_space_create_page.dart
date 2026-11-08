@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/widgets/app_step_scaffold.dart';
 import '../viewmodels/admin_space_form_view_model.dart';
 import 'steps/photo_step.dart';
+import 'steps/location_step.dart';
 
 class AdminSpaceCreatePage extends StatelessWidget {
   const AdminSpaceCreatePage({super.key, required this.onBack});
@@ -43,15 +44,15 @@ class _AdminSpaceCreateContent extends StatelessWidget {
       filledSteps: step - 1,
       totalSteps: 5,
       title: titles[step - 1],
-      body: step == 1
-          ? const PhotoStep()
-          : const Center(child: Text('이 단계는 다음 개발 과정에서 구현합니다.')),
+      body: switch (step) {
+        1 => const PhotoStep(),
+        2 => const LocationStep(),
+        _ => const Center(child: Text('이 단계는 다음 개발 과정에서 구현합니다.')),
+      },
       ctaLabel: step == 5 ? '등록하기' : '다음',
       onCta: viewModel.canProceed
           ? () {
-              if (step == 1) {
-                viewModel.nextStep();
-              }
+              viewModel.nextStep();
             }
           : null,
       onBack: () {
