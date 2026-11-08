@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../utils/geo.dart';
 import 'app_map.dart';
 import 'map_placeholder.dart';
 
@@ -13,7 +14,7 @@ class KakaoMapView extends StatelessWidget {
   });
 
   final String appKey;
-  final LatLng initialCenter;
+  final GeoPoint initialCenter;
   final MapOverlays overlays;
   final ValueChanged<MapController>? onCreated;
 

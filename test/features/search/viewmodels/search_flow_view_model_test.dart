@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:team_frontend/core/location/location_repository.dart';
 import 'package:team_frontend/core/models/purpose.dart';
-import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/features/search/models/origin.dart';
 import 'package:team_frontend/features/search/models/requirement.dart';
 import 'package:team_frontend/features/search/models/search_condition.dart';

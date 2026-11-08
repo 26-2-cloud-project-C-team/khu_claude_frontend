@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../utils/geo.dart';
 import 'app_map.dart';
 import 'kakao_map_stub.dart' if (dart.library.js_interop) 'kakao_map_web.dart';
 
@@ -13,7 +14,7 @@ class KakaoMapViewFactory implements MapViewFactory {
 
   @override
   Widget create({
-    required LatLng initialCenter,
+    required GeoPoint initialCenter,
     required MapOverlays overlays,
     ValueChanged<MapController>? onCreated,
   }) {

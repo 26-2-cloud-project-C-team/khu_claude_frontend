@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/models/rating.dart' as rating_rules;
 import '../data/feedback_repository.dart';
 import '../models/feedback_limits.dart';
-import '../../../core/models/rating.dart' as rating_rules;
 
 enum ReviewStep {
   /// A · 별점(필수)

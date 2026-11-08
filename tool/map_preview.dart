@@ -2,13 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:team_frontend/core/map/app_map.dart';
+import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/core/map/kakao_map.dart';
 import 'package:team_frontend/core/theme/app_theme.dart';
 
 // API 명세의 도보 경로 예시 좌표다. 실제 건물 위치와는 다르다.
-const _origin = LatLng(37.2467, 127.0803);
-const _destination = LatLng(37.2441, 127.0817);
-const _route = [_origin, LatLng(37.2459, 127.0809), _destination];
+const _origin = GeoPoint(37.2467, 127.0803);
+const _destination = GeoPoint(37.2441, 127.0817);
+const _route = [_origin, GeoPoint(37.2459, 127.0809), _destination];
 
 void main() {
   runApp(

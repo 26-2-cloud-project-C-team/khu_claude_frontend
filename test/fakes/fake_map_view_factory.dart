@@ -1,15 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:team_frontend/core/map/app_map.dart';
+import 'package:team_frontend/core/utils/geo.dart';
 
 /// 실제 SDK 없이 [AppMap]을 띄운다. 마지막으로 받은 값과 지도 명령을 기록한다.
 class FakeMapViewFactory implements MapViewFactory {
   final controller = FakeMapController();
-  LatLng? initialCenter;
+  GeoPoint? initialCenter;
   MapOverlays? overlays;
 
   @override
   Widget create({
-    required LatLng initialCenter,
+    required GeoPoint initialCenter,
     required MapOverlays overlays,
     ValueChanged<MapController>? onCreated,
   }) {
@@ -20,16 +21,19 @@ class FakeMapViewFactory implements MapViewFactory {
 }
 
 class FakeMapController implements MapController {
-  final fittedBounds = <List<LatLng>>[];
-  final movedTo = <LatLng>[];
+  final fittedBounds = <List<GeoPoint>>[];
+  final movedTo = <GeoPoint>[];
 
   @override
-  void fitBounds(List<LatLng> points, {EdgeInsets padding = EdgeInsets.zero}) {
+  void fitBounds(
+    List<GeoPoint> points, {
+    EdgeInsets padding = EdgeInsets.zero,
+  }) {
     fittedBounds.add(points);
   }
 
   @override
-  void moveTo(LatLng point) => movedTo.add(point);
+  void moveTo(GeoPoint point) => movedTo.add(point);
 }
 
 class _FakeMapView extends StatefulWidget {
