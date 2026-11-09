@@ -29,6 +29,13 @@ fvm flutter run -d chrome --dart-define=KAKAO_MAP_KEY=<JavaScript 키>
 fvm flutter run -d chrome -t tool/map_preview.dart --dart-define=KAKAO_MAP_KEY=<JavaScript 키>
 ```
 
+## 배포
+
+`main`에 push하면 `.github/workflows/deploy.yml`이 웹을 빌드해 운영 서버(`https://cloud-project.kro.kr`)에 올린다. 빌드 산출물은 커밋 SHA 이름으로 S3에 올라가고, 서버가 SSM 명령으로 받아 현재 버전을 교체한다. 서버 쪽 검증에 실패하면 이전 버전이 그대로 남는다.
+
+- 저장소 secret `KAKAO_MAP_KEY`에 카카오 JavaScript 키가 있어야 한다. 없으면 빌드 전에 실패한다.
+- 롤백은 Actions에서 Deploy 워크플로를 `main` 기준으로 수동 실행하면서 `version`에 이전 배포의 40자리 커밋 SHA를 넣는다. 빌드 없이 S3에 남아 있는 산출물을 다시 배포한다.
+
 ## 테스트
 
 Unit·Widget Test는 CI에서도 돈다.

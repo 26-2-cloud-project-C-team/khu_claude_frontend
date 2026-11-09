@@ -1,0 +1,105 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 롤백할 커밋 SHA(40자리). 비우면 현재 커밋을 빌드해 배포한다.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+# 배포 도중 취소되면 서버 상태를 보장할 수 없으므로 이전 실행을 취소하지 않는다.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  AWS_ROLE_ARN: arn:aws:iam::276569199345:role/cloud-project-frontend-deploy
+  BUCKET: cloud-project-frontend-9345
+  RELEASE_DOCUMENT: cloud-project-frontend-release
+  INSTANCE_ID: i-0ce11f5526965ca95
+
+jobs:
+  deploy:
+    # 배포 역할의 신뢰 정책이 main 브랜치로 제한되어 있다.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # 버전이 입력되면 빌드와 업로드를 건너뛰고 S3에 이미 있는 산출물을 배포한다.
+      - name: Resolve version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$REQUESTED_VERSION" ]; then
+            if ! echo "$REQUESTED_VERSION" | grep -Eq '^[0-9a-f]{40}$'; then
+              echo "version은 40자리 커밋 SHA여야 한다: $REQUESTED_VERSION" >&2
+              exit 1
+            fi
+            echo "sha=$REQUESTED_VERSION" >>"$GITHUB_OUTPUT"
+            echo "build=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "sha=$GITHUB_SHA" >>"$GITHUB_OUTPUT"
+            echo "build=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.version.outputs.build == 'true'
+
+      - uses: subosito/flutter-action@v2.23.0
+        if: steps.version.outputs.build == 'true'
+        with:
+          flutter-version-file: .fvmrc
+          cache: true
+
+      # 키 없이 빌드해도 성공하지만 지도가 안내 문구로 바뀌므로, 배포 전에 막는다.
+      - name: Build
+        if: steps.version.outputs.build == 'true'
+        env:
+          KAKAO_MAP_KEY: ${{ secrets.KAKAO_MAP_KEY }}
+        run: |
+          test -n "$KAKAO_MAP_KEY" || { echo 'KAKAO_MAP_KEY secret이 없다.' >&2; exit 1; }
+          flutter pub get
+          flutter build web --release --dart-define=KAKAO_MAP_KEY="$KAKAO_MAP_KEY"
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 서버는 index.html이 압축 파일 최상위에 있어야 배포한다.
+      - name: Upload
+        if: steps.version.outputs.build == 'true'
+        env:
+          SHA: ${{ steps.version.outputs.sha }}
+        run: |
+          tar -czf "$RUNNER_TEMP/web.tar.gz" -C build/web .
+          aws s3 cp "$RUNNER_TEMP/web.tar.gz" "s3://$BUCKET/releases/$SHA.tar.gz"
+
+      # 명령은 비동기로 실행되므로 끝날 때까지 기다린 뒤 결과로 성패를 가린다.
+      - name: Release
+        env:
+          SHA: ${{ steps.version.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          command_id=$(aws ssm send-command \
+            --document-name "$RELEASE_DOCUMENT" \
+            --instance-ids "$INSTANCE_ID" \
+            --parameters "Version=$SHA" \
+            --comment "frontend $SHA" \
+            --query Command.CommandId --output text)
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$INSTANCE_ID" || true
+
+          status=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query Status --output text)
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query StandardOutputContent --output text
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query StandardErrorContent --output text >&2
+          test "$status" = Success
