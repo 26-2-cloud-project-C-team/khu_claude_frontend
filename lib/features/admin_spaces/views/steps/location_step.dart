@@ -9,7 +9,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_bottom_sheet.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/building_list.dart';
-import '../../data/mock_buildings.dart';
 import '../../viewmodels/admin_space_form_view_model.dart';
 
 class LocationStep extends StatefulWidget {
@@ -43,11 +42,22 @@ class _LocationStepState extends State<LocationStep> {
 
   Future<void> _selectBuilding() async {
     final viewModel = context.read<AdminSpaceFormViewModel>();
+    if (viewModel.isLoadingBuildings) return;
+    if (viewModel.buildings.isEmpty) {
+      await viewModel.loadBuildings();
+      if (!mounted) return;
+      if (viewModel.buildings.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(viewModel.buildingError ?? '건물 목록을 확인할 수 없습니다.')),
+        );
+        return;
+      }
+    }
 
     final Building? building = await showBuildingSelectSheet(
       context: context,
       title: '건물을 선택해주세요',
-      buildings: mockBuildings,
+      buildings: viewModel.buildings,
       selected: viewModel.building,
     );
 
@@ -111,10 +121,22 @@ class _LocationStepState extends State<LocationStep> {
         _FieldLabel('건물'),
 
         _SelectField(
-          value: viewModel.building?.name ?? '건물을 선택해주세요',
+          value: viewModel.isLoadingBuildings
+              ? '건물 목록 불러오는 중...'
+              : viewModel.building?.name ??
+                    (viewModel.buildingError == null
+                        ? '건물을 선택해주세요'
+                        : '건물 목록 다시 불러오기'),
           isSelected: viewModel.building != null,
           onTap: _selectBuilding,
         ),
+        if (viewModel.buildingError != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            viewModel.buildingError!,
+            style: AppTypography.caption.copyWith(color: AppColors.primary),
+          ),
+        ],
 
         const SizedBox(height: AppSpacing.section),
 

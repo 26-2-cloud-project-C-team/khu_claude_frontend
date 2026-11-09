@@ -5,8 +5,41 @@ import '../../../core/models/noise_level.dart';
 import '../../../core/models/purpose.dart';
 import '../../../core/models/space_photo.dart';
 import '../models/selected_space_photo.dart';
+import '../data/admin_space_repository.dart';
 
 class AdminSpaceFormViewModel extends ChangeNotifier {
+  AdminSpaceFormViewModel({required AdminSpaceRepository repository})
+    : this._internal(repository);
+
+  AdminSpaceFormViewModel._internal(this._repository) {
+    loadBuildings();
+  }
+
+  final AdminSpaceRepository _repository;
+
+  List<Building> _buildings = const [];
+  bool _isLoadingBuildings = false;
+  String? _buildingError;
+
+  List<Building> get buildings => List.unmodifiable(_buildings);
+  bool get isLoadingBuildings => _isLoadingBuildings;
+  String? get buildingError => _buildingError;
+
+  Future<void> loadBuildings() async {
+    if (_isLoadingBuildings) return;
+    _isLoadingBuildings = true;
+    _buildingError = null;
+    notifyListeners();
+    try {
+      _buildings = await _repository.fetchBuildings();
+    } catch (_) {
+      _buildingError = '건물 목록을 불러오지 못했습니다. 다시 시도해주세요.';
+    } finally {
+      _isLoadingBuildings = false;
+      notifyListeners();
+    }
+  }
+
   int _currentStep = 1;
 
   int get currentStep => _currentStep;
@@ -168,7 +201,7 @@ class AdminSpaceFormViewModel extends ChangeNotifier {
   bool get hasFreeWifi => _hasFreeWifi;
 
   void setTableCount(int value) {
-    _tableCount = value.clamp(0, 40);
+    _tableCount = value.clamp(1, 40);
     _chargingTableCount = _chargingTableCount.clamp(0, _tableCount);
     notifyListeners();
   }
@@ -192,12 +225,9 @@ class AdminSpaceFormViewModel extends ChangeNotifier {
   String _goodPoints = '';
   String _badPoints = '';
   String _memo = '';
-  String? _surveyor;
-
   String get goodPoints => _goodPoints;
   String get badPoints => _badPoints;
   String get memo => _memo;
-  String? get surveyor => _surveyor;
 
   void setGoodPoints(String value) {
     _goodPoints = _limit(value, 40);
@@ -214,10 +244,6 @@ class AdminSpaceFormViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setSurveyor(String value) {
-    _surveyor = value;
-    notifyListeners();
-  }
 
   // 단계 검증
   bool get canProceed {
@@ -236,10 +262,12 @@ class AdminSpaceFormViewModel extends ChangeNotifier {
         return _is24Hours || _endMinutes > _startMinutes;
 
       case 4:
-        return _chargingTableCount <= _tableCount;
+        return _tableCount >= 1 && _chargingTableCount <= _tableCount;
 
       case 5:
-        return _surveyor != null && _surveyor!.isNotEmpty;
+        return _goodPoints.trim().isNotEmpty &&
+            _badPoints.trim().isNotEmpty &&
+            _memo.trim().isNotEmpty;
 
       default:
         return false;

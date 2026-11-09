@@ -66,28 +66,11 @@ class AdminSpaceDetailViewModel extends ChangeNotifier {
     }
   }
 
-  // 재조사 요청 처리
-  Future<bool> resolveReinspection(String requestId) async {
-    if (_isUpdating || _detail == null) return false;
-
-    _isUpdating = true;
-    notifyListeners();
-
-    try {
-      await _repository.resolveReinspection(_spaceId, requestId);
-      await _refreshDetail();
-      return true;
-    } catch (e) {
-      _errorMessage = '재조사 요청 처리에 실패했습니다.';
-      return false;
-    } finally {
-      _isUpdating = false;
-      notifyListeners();
-    }
-  }
-
   // 현재 공간의 미처리 재조사 요청 전체 처리
-  Future<bool> resolveAllReinspections({String result = ''}) async {
+  Future<bool> resolveAllReinspections({
+    String result = '',
+    bool makePrivate = false,
+  }) async {
     if (_isUpdating || _detail == null) return false;
 
     final hasPendingRequests = _detail!.reinspectionRequests.any(
@@ -101,7 +84,11 @@ class AdminSpaceDetailViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.resolveAllReinspections(_spaceId, result: result);
+      await _repository.resolveAllReinspections(
+        _spaceId,
+        result: result,
+        makePrivate: makePrivate,
+      );
 
       await _refreshDetail();
 

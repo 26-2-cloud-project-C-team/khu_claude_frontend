@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -80,6 +81,41 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
 
     final user = event.user;
     final idToken = user.authentication.idToken;
+    if (idToken != null && idToken.isNotEmpty) {
+      try {
+        final parts = idToken.split('.');
+
+        if (parts.length == 3) {
+          final payload = jsonDecode(
+            utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+          ) as Map<String, dynamic>;
+
+          final aud = payload['aud'];
+          final exp = payload['exp'];
+
+          const expectedClientId =
+              '273043781488-i77ccsr0tqi878plo8sa2at2o7l5c0cf.apps.googleusercontent.com';
+
+          debugPrint('========== Google ID Token 확인 ==========');
+          debugPrint('aud: $aud');
+          debugPrint('기대 Client ID 일치: ${aud == expectedClientId}');
+          debugPrint('exp: $exp');
+
+          if (exp is num) {
+            final expiry = DateTime.fromMillisecondsSinceEpoch(
+              exp.toInt() * 1000,
+              isUtc: true,
+            );
+
+            debugPrint('만료 시각(UTC): $expiry');
+            debugPrint('현재 시각(UTC): ${DateTime.now().toUtc()}');
+            debugPrint('만료 여부: ${DateTime.now().toUtc().isAfter(expiry)}');
+          }
+        }
+      } catch (e) {
+        debugPrint('ID Token 정보 확인 실패: $e');
+      }
+    }
     if (idToken == null || idToken.isEmpty) {
       if (mounted) {
         setState(() => _googleError = 'Google ID 토큰을 발급받지 못했습니다. 다시 로그인해주세요.');

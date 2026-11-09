@@ -1,7 +1,11 @@
+import '../../../core/models/building.dart';
 import '../models/admin_space.dart';
 import '../models/admin_space_detail.dart';
 
 abstract class AdminSpaceRepository {
+  // 건물 목록(공간 등록 위치 선택)
+  Future<List<Building>> fetchBuildings();
+
   // 공간 목록
   Future<List<AdminSpace>> fetchSpaces();
 
@@ -12,7 +16,11 @@ abstract class AdminSpaceRepository {
   Future<AdminSpaceDetail?> fetchSpaceDetailById(String id);
 
   // 공간 등록
-  Future<void> addSpace(AdminSpace space, {AdminSpaceDetail? detail});
+  Future<void> addSpace(
+    AdminSpace space, {
+    AdminSpaceDetail? detail,
+    required String surveyorEmail,
+  });
 
   // 공개 상태 변경
   Future<void> updateVisibility(String id, bool isPublic);
@@ -24,16 +32,10 @@ abstract class AdminSpaceRepository {
     required String sectionLabel,
   });
 
-  // 재조사 요청 처리
-  Future<void> resolveReinspection(
-    String spaceId,
-    String requestId, {
-    String? result,
-  });
-
-  // AD-04에서 현재 접수된 요청을 공간 단위로 한 번에 처리한다.
+  // 재조사 요청 일괄 처리
   Future<void> resolveAllReinspections(
     String spaceId, {
     required String result,
+    bool makePrivate = false,
   });
 }

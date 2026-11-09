@@ -6,6 +6,12 @@ class AdminSpace {
     required this.updatedAt,
     required this.isPublic,
     this.reinspectionRequestCount = 0,
+    this.buildingId,
+    this.buildingName,
+    this.floor,
+    this.locationDetail,
+    this.purposes = const [],
+    this.isStale = false,
   });
 
   final String id;
@@ -15,6 +21,14 @@ class AdminSpace {
   final bool isPublic;
   final int reinspectionRequestCount;
 
+  /// API 수정 요청에서 기존 위치 정보를 보존하기 위한 서버 원본 필드.
+  final String? buildingId;
+  final String? buildingName;
+  final int? floor;
+  final String? locationDetail;
+  final List<String> purposes;
+  final bool isStale;
+
   bool get hasReinspectionRequest => reinspectionRequestCount > 0;
 
   AdminSpace copyWith({
@@ -23,6 +37,12 @@ class AdminSpace {
     DateTime? updatedAt,
     bool? isPublic,
     int? reinspectionRequestCount,
+    String? buildingId,
+    String? buildingName,
+    int? floor,
+    String? locationDetail,
+    List<String>? purposes,
+    bool? isStale,
   }) {
     return AdminSpace(
       id: id,
@@ -32,6 +52,12 @@ class AdminSpace {
       isPublic: isPublic ?? this.isPublic,
       reinspectionRequestCount:
           reinspectionRequestCount ?? this.reinspectionRequestCount,
+      buildingId: buildingId ?? this.buildingId,
+      buildingName: buildingName ?? this.buildingName,
+      floor: floor ?? this.floor,
+      locationDetail: locationDetail ?? this.locationDetail,
+      purposes: purposes ?? this.purposes,
+      isStale: isStale ?? this.isStale,
     );
   }
 }

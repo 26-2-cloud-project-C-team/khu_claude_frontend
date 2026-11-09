@@ -29,7 +29,7 @@ class FacilitiesStep extends StatelessWidget {
             AppStepperRow(
               label: '전체 테이블 수',
               value: viewModel.tableCount,
-              min: 0,
+              min: 1,
               max: 40,
               unit: '개',
               onChanged: viewModel.setTableCount,

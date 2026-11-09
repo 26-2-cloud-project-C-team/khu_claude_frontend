@@ -49,4 +49,7 @@ class _FakeAdminAuthRepository implements AdminAuthRepository {
   Future<AdminUser?> fetchCurrentAdmin() async {
     return null;
   }
+
+  @override
+  Future<void> signOut() async {}
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 
 import '../errors/app_exception.dart';
@@ -33,6 +34,23 @@ class ApiClient {
   Future<dynamic> post(String path, {Object? body}) =>
       _send(() => _dio.post(path, data: body));
 
+  /// 관리자 사진 업로드처럼 multipart/form-data가 필요한 요청이다.
+  Future<dynamic> postMultipart(
+    String path, {
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+  }) {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: fileName,
+        contentType: DioMediaType.parse(mimeType),
+      ),
+    });
+    return _send(() => _dio.post(path, data: form));
+  }
+
   Future<dynamic> put(String path, {Object? body}) =>
       _send(() => _dio.put(path, data: body));
 
@@ -54,6 +72,22 @@ class ApiClient {
       return data == '' ? null : data;
     } on DioException catch (e) {
       final response = e.response;
+
+      if (kDebugMode) {
+        final status =
+            response?.statusCode?.toString() ?? 'NO_RESPONSE';
+
+        debugPrint(
+          '[API ERROR] ${e.requestOptions.method} '
+          '${e.requestOptions.uri.path} '
+          'status=$status',
+        );
+
+        debugPrint(
+          '[API ERROR] response=${response?.data ?? e.message}',
+        );
+      }
+
       if (response == null) throw const AppException();
 
       final statusCode = response.statusCode!;
