@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:team_frontend/app/router.dart';
 import 'package:team_frontend/core/location/location_repository.dart';
+import 'package:team_frontend/core/theme/app_theme.dart';
+import 'package:team_frontend/features/admin_spaces/data/admin_space_repository.dart';
+import 'package:team_frontend/features/admin_spaces/data/mock_admin_space_repository.dart';
+import 'package:team_frontend/features/admin_spaces/viewmodels/admin_space_list_view_model.dart';
 import 'package:team_frontend/features/directions/data/directions_repository.dart';
 import 'package:team_frontend/features/feedback/data/feedback_repository.dart';
 import 'package:team_frontend/features/search/data/search_repository.dart';
@@ -20,11 +24,19 @@ void main() {
     String location, {
     FakeSearchRepository? search,
   }) async {
+    final adminSpaces = MockAdminSpaceRepository();
     final router = createRouter(initialLocation: location);
     addTearDown(router.dispose);
+
     await tester.pumpWidget(
       MultiProvider(
         providers: [
+          // 관리자 화면
+          Provider<AdminSpaceRepository>.value(value: adminSpaces),
+          ChangeNotifierProvider<AdminSpaceListViewModel>(
+            create: (_) => AdminSpaceListViewModel(adminSpaces)..load(),
+          ),
+          // 사용자 화면
           Provider<SearchRepository>.value(
             value: search ?? FakeSearchRepository(buildings: const [engineering, centralLibrary]),
           ),
@@ -34,7 +46,7 @@ void main() {
           Provider<DirectionsRepository>.value(value: FakeDirectionsRepository()),
           Provider<FeedbackRepository>.value(value: FakeFeedbackRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();
@@ -100,35 +112,40 @@ void main() {
     });
   });
 
-  final adminScreens = {
-    AppRoutes.adminLogin: 'AD-01 로그인',
-    AppRoutes.adminSpaces: 'AD-02 공간 목록',
-    AppRoutes.adminSpaceNew: 'AD-03 공간 등록',
-    AppRoutes.adminSpace('7'): 'AD-04 공간 상세·재조사 처리 (7)',
-    AppRoutes.adminSpaceEdit('7'): 'AD-03 공간 수정 (7)',
-  };
+  group('관리자 화면', () {
+    testWidgets('/admin은 공간 목록으로 보낸다', (tester) async {
+      final router = await pumpAt(tester, AppRoutes.admin);
 
-  for (final MapEntry(key: location, value: screen) in adminScreens.entries) {
-    testWidgets('$location 경로가 $screen 화면을 연다', (tester) async {
-      await pumpAt(tester, location);
-
-      expect(find.text(screen), findsOneWidget);
+      expect(router.state.uri.path, AppRoutes.adminSpaces);
+      expect(find.text('공간 관리'), findsOneWidget);
     });
-  }
 
-  testWidgets('/admin은 공간 목록으로 보낸다', (tester) async {
-    final router = await pumpAt(tester, AppRoutes.admin);
+    testWidgets('공간 상세에서 뒤로 가면 공간 목록이 나온다', (tester) async {
+      final router = await pumpAt(tester, AppRoutes.adminSpace('space-001'));
 
-    expect(router.state.uri.path, AppRoutes.adminSpaces);
-    expect(find.text('AD-02 공간 목록'), findsOneWidget);
-  });
+      expect(find.text('공간 상세'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
 
-  testWidgets('공간 상세에서 뒤로 가면 공간 목록이 나온다', (tester) async {
-    final router = await pumpAt(tester, AppRoutes.adminSpace('7'));
+      expect(find.text('공간 관리'), findsOneWidget);
+    });
 
-    router.pop();
-    await tester.pumpAndSettle();
+    testWidgets('AD-04 정보 행에서 AD-05 해당 섹션 수정 화면을 연다', (tester) async {
+      final router = await pumpAt(tester, AppRoutes.adminSpace('space-001'));
 
-    expect(find.text('AD-02 공간 목록'), findsOneWidget);
+      final editRow = find.text('이용 규칙과 소음');
+
+      await tester.ensureVisible(editRow);
+      await tester.pumpAndSettle();
+
+      await tester.tap(editRow);
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.path, '/admin/spaces/space-001/edit');
+      expect(router.state.uri.queryParameters['section'], 'rules');
+      expect(find.text('부분 수정'), findsOneWidget);
+      expect(find.text('이용 규칙과 소음을 고쳐주세요'), findsOneWidget);
+      expect(find.text('24시간 이용'), findsOneWidget);
+    });
   });
 }
