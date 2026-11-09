@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../features/admin_auth/viewmodels/admin_auth_view_model.dart';
 import '../features/admin_auth/views/admin_login_page.dart';
 import '../features/admin_spaces/views/admin_space_list_page.dart';
 import '../features/admin_spaces/views/admin_space_create_page.dart';
@@ -27,9 +29,33 @@ abstract final class AppRoutes {
   static String adminSpaceEdit(String spaceId) => '/admin/spaces/$spaceId/edit';
 }
 
-GoRouter createRouter({String initialLocation = AppRoutes.start}) {
+GoRouter createRouter({
+  String initialLocation = AppRoutes.start,
+  AdminAuthViewModel? adminAuth,
+}) {
   return GoRouter(
     initialLocation: initialLocation,
+    refreshListenable: adminAuth,
+    redirect: adminAuth == null
+        ? null
+        : (context, state) {
+            final path = state.uri.path;
+            if (!path.startsWith('/admin')) return null;
+
+            final isLoginRoute = path == AppRoutes.adminLogin;
+            // 세션 확인 중에는 관리자 보호 화면을 잠시도 노출하지 않는다.
+            if (adminAuth.isCheckingSession) {
+              return isLoginRoute ? null : AppRoutes.adminLogin;
+            }
+
+            if (adminAuth.isAuthenticated && isLoginRoute) {
+              return AppRoutes.adminSpaces;
+            }
+            if (!adminAuth.isAuthenticated && !isLoginRoute) {
+              return AppRoutes.adminLogin;
+            }
+            return null;
+          },
     routes: [
       // 검색 조건을 US-00부터 공유해야 하므로 사용자 화면을 한 ShellRoute로 묶는다.
       // SearchFlowViewModel은 이 builder에서 child를 감싸 제공한다.
@@ -71,6 +97,8 @@ GoRouter createRouter({String initialLocation = AppRoutes.start}) {
                 context.push(AppRoutes.adminSpace(spaceId));
               },
               onLogout: () {
+                // 제공된 API 명세에 서버 로그아웃 경로가 없어 앱 상태만 초기화한다.
+                context.read<AdminAuthViewModel>().clearLocalSession();
                 context.go(AppRoutes.adminLogin);
               },
             ),
