@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../admin_auth/viewmodels/admin_auth_view_model.dart';
 import '../models/admin_space.dart';
 import '../viewmodels/admin_space_list_view_model.dart';
 
@@ -376,6 +377,8 @@ class _AdminSpaceListPageState extends State<AdminSpaceListPage> {
   }
 
   void _showAccountMenu() {
+    final admin = context.read<AdminAuthViewModel>().admin;
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.white,
@@ -390,9 +393,9 @@ class _AdminSpaceListPageState extends State<AdminSpaceListPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('관리자 계정', style: AppTypography.h2),
+                Text(admin?.name ?? '관리자 계정', style: AppTypography.h2),
                 const SizedBox(height: 8),
-                Text('wkdwowns2@khu.ac.kr', style: AppTypography.body2),
+                Text(admin?.email ?? '', style: AppTypography.body2),
                 const SizedBox(height: 24),
                 OutlinedButton(
                   onPressed: () {

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/admin_space_repository.dart';
-import '../models/admin_space.dart';
 import '../models/admin_space_detail.dart';
+import '../models/admin_space.dart';
 
 class AdminSpaceDetailViewModel extends ChangeNotifier {
   AdminSpaceDetailViewModel({
@@ -51,7 +51,6 @@ class AdminSpaceDetailViewModel extends ChangeNotifier {
     if (_isUpdating || _detail == null) return false;
 
     _isUpdating = true;
-    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -68,19 +67,14 @@ class AdminSpaceDetailViewModel extends ChangeNotifier {
   }
 
   // 재조사 요청 처리
-  Future<bool> resolveReinspection(String requestId, {String? result}) async {
+  Future<bool> resolveReinspection(String requestId) async {
     if (_isUpdating || _detail == null) return false;
 
     _isUpdating = true;
-    _errorMessage = null;
     notifyListeners();
 
     try {
-      await _repository.resolveReinspection(
-        _spaceId,
-        requestId,
-        result: result,
-      );
+      await _repository.resolveReinspection(_spaceId, requestId);
       await _refreshDetail();
       return true;
     } catch (e) {
@@ -92,16 +86,15 @@ class AdminSpaceDetailViewModel extends ChangeNotifier {
     }
   }
 
-  /// 현재 공간에 접수된 미처리 요청을 한 번에 처리한다.
+  // 현재 공간의 미처리 재조사 요청 전체 처리
   Future<bool> resolveAllReinspections({String result = ''}) async {
     if (_isUpdating || _detail == null) return false;
 
-    final requestIds = _detail!.reinspectionRequests
-        .where((request) => !request.isResolved)
-        .map((request) => request.id)
-        .toList(growable: false);
+    final hasPendingRequests = _detail!.reinspectionRequests.any(
+      (request) => !request.isResolved,
+    );
 
-    if (requestIds.isEmpty) return true;
+    if (!hasPendingRequests) return true;
 
     _isUpdating = true;
     _errorMessage = null;
@@ -109,17 +102,18 @@ class AdminSpaceDetailViewModel extends ChangeNotifier {
 
     try {
       await _repository.resolveAllReinspections(_spaceId, result: result);
+
       await _refreshDetail();
+
       return true;
     } catch (_) {
-      // 일부 요청이 먼저 처리됐을 수 있으므로 서버의 최신 상태를 다시 반영한다.
       try {
         await _refreshDetail();
       } catch (_) {
-        // 처리 실패 시 기존 상세 데이터라도 유지한다.
+        // 최신 정보를 불러오지 못하면 기존 상세 정보 유지
       }
+
       _errorMessage = '재조사 요청 처리에 실패했습니다.';
-      notifyListeners();
       return false;
     } finally {
       _isUpdating = false;

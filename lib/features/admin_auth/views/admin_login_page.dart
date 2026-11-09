@@ -1,5 +1,13 @@
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+import '../widgets/google_sign_in_button.dart';
+import '../viewmodels/admin_auth_view_model.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -7,8 +15,8 @@ import '../../../core/theme/app_typography.dart';
 /// AD-01 관리자 로그인 화면.
 ///
 /// accessDenied가 true이면 관리자 권한이 없는 계정 안내 화면을 표시한다.
-/// 실제 Google 인증은 추후 Repository 연결 단계에서 구현한다.
-class AdminLoginPage extends StatelessWidget {
+/// Google ID 토큰을 발급받아 관리자 인증 API에 전달한다.
+class AdminLoginPage extends StatefulWidget {
   const AdminLoginPage({
     super.key,
     this.accessDenied = false,
@@ -19,14 +27,107 @@ class AdminLoginPage extends StatelessWidget {
   final String email;
 
   @override
-  Widget build(BuildContext context) {
-    final title = accessDenied
-        ? '다른 계정으로 로그인해주세요'
-        : '관리자 계정으로 로그인해주세요';
+  State<AdminLoginPage> createState() => _AdminLoginPageState();
+}
 
-    final description = accessDenied
+class _AdminLoginPageState extends State<AdminLoginPage> {
+  static const _googleClientId =
+      '273043781488-i77ccsr0tqi878plo8sa2at2o7l5c0cf.apps.googleusercontent.com';
+  static Future<void>? _initialization;
+
+  StreamSubscription<GoogleSignInAuthenticationEvent>?
+  _authenticationSubscription;
+  bool _googleReady = false;
+  bool _isSubmitting = false;
+  String? _googleError;
+  String? _selectedEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) _initializeGoogleSignIn();
+  }
+
+  Future<void> _initializeGoogleSignIn() async {
+    try {
+      _initialization ??= GoogleSignIn.instance.initialize(
+        clientId: _googleClientId,
+      );
+      await _initialization;
+
+      _authenticationSubscription = GoogleSignIn.instance.authenticationEvents
+          .listen(_handleAuthenticationEvent, onError: _handleGoogleError);
+
+      if (mounted) setState(() => _googleReady = true);
+    } catch (_) {
+      _initialization = null;
+      if (mounted) {
+        setState(() {
+          _googleError = 'Google 로그인 초기화에 실패했습니다. 브라우저 설정을 확인해주세요.';
+        });
+      }
+    }
+  }
+
+  Future<void> _handleAuthenticationEvent(
+    GoogleSignInAuthenticationEvent event,
+  ) async {
+    if (!mounted ||
+        event is! GoogleSignInAuthenticationEventSignIn ||
+        _isSubmitting) {
+      return;
+    }
+
+    final user = event.user;
+    final idToken = user.authentication.idToken;
+    if (idToken == null || idToken.isEmpty) {
+      if (mounted) {
+        setState(() => _googleError = 'Google ID 토큰을 발급받지 못했습니다. 다시 로그인해주세요.');
+      }
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _selectedEmail = user.email;
+      _googleError = null;
+    });
+
+    final authViewModel = context.read<AdminAuthViewModel>();
+    final succeeded = await authViewModel.signInWithGoogleIdToken(idToken);
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    if (succeeded) {
+      context.go('/admin/spaces');
+    }
+  }
+
+  void _handleGoogleError(Object _) {
+    if (!mounted) return;
+    setState(() {
+      _googleError = 'Google 로그인에 실패했습니다. 다시 시도해주세요.';
+      _isSubmitting = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _authenticationSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authViewModel = context.watch<AdminAuthViewModel>();
+    final denied = widget.accessDenied || authViewModel.isAccessDenied;
+    final email = _selectedEmail ?? widget.email;
+    final title = denied ? '다른 계정으로 로그인해주세요' : '관리자 계정으로 로그인해주세요';
+    final description = denied
         ? '이 계정은 관리자 권한이 없어요.'
         : '관리자로 등록된 Google 계정만 접속할 수 있어요.';
+    final errorMessage = _googleError ?? authViewModel.errorMessage;
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -35,9 +136,7 @@ class AdminLoginPage extends StatelessWidget {
           builder: (context, constraints) {
             return SingleChildScrollView(
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
@@ -45,26 +144,13 @@ class AdminLoginPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _AdminWordmark(),
-
                         const SizedBox(height: 24),
-
                         const _AdminIllustration(),
-
                         const SizedBox(height: 24),
-
-                        Text(
-                          title,
-                          style: AppTypography.h1,
-                        ),
-
+                        Text(title, style: AppTypography.h1),
                         const SizedBox(height: 8),
-
-                        Text(
-                          description,
-                          style: AppTypography.body2,
-                        ),
-
-                        if (accessDenied) ...[
+                        Text(description, style: AppTypography.body2),
+                        if (denied) ...[
                           const SizedBox(height: 24),
                           _AccountCard(email: email),
                           const SizedBox(height: 12),
@@ -73,22 +159,19 @@ class AdminLoginPage extends StatelessWidget {
                             style: AppTypography.caption,
                           ),
                         ],
-
                         const Spacer(),
-
-                        _GoogleLoginButton(
-                          denied: accessDenied,
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Google 로그인은 추후 연동 예정입니다.'),
-                              ),
-                            );
-                          },
-                        ),
-
+                        _buildGoogleButton(),
+                        if (errorMessage != null || _googleError != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            errorMessage ?? _googleError!,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
-
                         Text(
                           '로그인 후 관리자 등록 여부를 확인합니다.',
                           textAlign: TextAlign.center,
@@ -105,6 +188,31 @@ class AdminLoginPage extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildGoogleButton() {
+    if (!kIsWeb) {
+      return const Text('관리자 Google 로그인은 웹 브라우저에서 이용할 수 있습니다.');
+    }
+
+    if (!_googleReady) {
+      if (_googleError != null) {
+        return const SizedBox.shrink();
+      }
+
+      return const SizedBox(
+        height: 56,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return IgnorePointer(
+      ignoring: _isSubmitting,
+      child: Opacity(
+        opacity: _isSubmitting ? 0.55 : 1,
+        child: buildGoogleSignInButton(),
+      ),
+    );
+  }
 }
 
 /// 관리자 페이지 워드마크
@@ -113,11 +221,7 @@ class _AdminWordmark extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(
-          Icons.location_on,
-          color: AppColors.primary,
-          size: 18,
-        ),
+        const Icon(Icons.location_on, color: AppColors.primary, size: 18),
         const SizedBox(width: 4),
         Text(
           '경희 공간찾기 관리자 페이지',
@@ -153,9 +257,7 @@ class _AdminIllustration extends StatelessWidget {
             top: 38,
             child: Transform.rotate(
               angle: -0.10,
-              child: _PhotoCard(
-                icon: Icons.apartment,
-              ),
+              child: _PhotoCard(icon: Icons.apartment),
             ),
           ),
 
@@ -164,9 +266,7 @@ class _AdminIllustration extends StatelessWidget {
             top: 38,
             child: Transform.rotate(
               angle: 0.10,
-              child: _PhotoCard(
-                icon: Icons.chair_alt,
-              ),
+              child: _PhotoCard(icon: Icons.chair_alt),
             ),
           ),
 
@@ -219,11 +319,7 @@ class _PhotoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.white, width: 4),
       ),
-      child: Icon(
-        icon,
-        color: AppColors.gray500,
-        size: 36,
-      ),
+      child: Icon(icon, color: AppColors.gray500, size: 36),
     );
   }
 }
@@ -248,11 +344,7 @@ class _ChecklistRow extends StatelessWidget {
             ),
           ),
           child: checked
-              ? const Icon(
-                  Icons.check,
-                  size: 9,
-                  color: AppColors.white,
-                )
+              ? const Icon(Icons.check, size: 9, color: AppColors.white)
               : null,
         ),
         const SizedBox(width: 10),
@@ -289,20 +381,14 @@ class _AccountCard extends StatelessWidget {
         children: [
           const CircleAvatar(
             backgroundColor: AppColors.primaryTint,
-            child: Icon(
-              Icons.person,
-              color: AppColors.primary,
-            ),
+            child: Icon(Icons.person, color: AppColors.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '로그인한 계정',
-                  style: AppTypography.caption,
-                ),
+                Text('로그인한 계정', style: AppTypography.caption),
                 const SizedBox(height: 4),
                 Text(
                   email,
@@ -314,58 +400,6 @@ class _AccountCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Google 로그인 버튼
-class _GoogleLoginButton extends StatelessWidget {
-  const _GoogleLoginButton({
-    required this.denied,
-    required this.onPressed,
-  });
-
-  final bool denied;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: AppColors.white,
-          foregroundColor: AppColors.gray900,
-          side: const BorderSide(color: AppColors.gray200),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'G',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF4285F4),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              denied
-                  ? '다른 Google 계정으로 로그인'
-                  : 'Google 계정으로 로그인',
-              style: AppTypography.body1.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
