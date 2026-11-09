@@ -96,10 +96,9 @@ GoRouter createRouter({
               onOpenSpace: (spaceId) {
                 context.push(AppRoutes.adminSpace(spaceId));
               },
-              onLogout: () {
-                // 제공된 API 명세에 서버 로그아웃 경로가 없어 앱 상태만 초기화한다.
-                context.read<AdminAuthViewModel>().clearLocalSession();
-                context.go(AppRoutes.adminLogin);
+              onLogout: () async {
+                await context.read<AdminAuthViewModel>().signOut();
+                if (context.mounted) context.go(AppRoutes.adminLogin);
               },
             ),
             routes: [

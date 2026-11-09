@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/models/space_photo.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/selected_space_photo_image.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../models/selected_space_photo.dart';
 import '../../viewmodels/admin_space_form_view_model.dart';
@@ -204,7 +205,7 @@ class _RequiredPhotoTile extends StatelessWidget {
                   width: 62,
                   height: 62,
                   child: selected
-                      ? Image.memory(photo!.bytes, fit: BoxFit.cover)
+                      ? SelectedSpacePhotoImage(photo: photo!, fit: BoxFit.cover)
                       : Container(
                           color: AppColors.gray200,
                           child: const Icon(
@@ -269,7 +270,7 @@ class _ExtraPhotoTile extends StatelessWidget {
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.memory(photo.bytes, fit: BoxFit.cover),
+              child: SelectedSpacePhotoImage(photo: photo, fit: BoxFit.cover),
             ),
           ),
 

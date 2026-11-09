@@ -1,9 +1,11 @@
+import '../../../core/models/building.dart';
 import '../../../core/models/reinspection_category.dart';
 import '../models/admin_space.dart';
 import '../models/admin_space_activity.dart';
 import '../models/admin_space_detail.dart';
 import '../models/reinspection_request.dart';
 import 'admin_space_repository.dart';
+import 'mock_buildings.dart';
 
 class MockAdminSpaceRepository implements AdminSpaceRepository {
   MockAdminSpaceRepository() {
@@ -61,6 +63,12 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
 
   final Map<String, AdminSpaceDetail> _details = {};
 
+  @override
+  Future<List<Building>> fetchBuildings() async {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    return mockBuildings;
+  }
+
   // 공간 목록 조회
   @override
   Future<List<AdminSpace>> fetchSpaces() async {
@@ -89,7 +97,11 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
 
   // 공간 등록
   @override
-  Future<void> addSpace(AdminSpace space, {AdminSpaceDetail? detail}) async {
+  Future<void> addSpace(
+    AdminSpace space, {
+    AdminSpaceDetail? detail,
+    required String surveyorEmail,
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
     _spaces.add(space);
@@ -163,84 +175,12 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
     );
   }
 
-  // 재조사 요청 처리
-  @override
-  Future<void> resolveReinspection(
-    String spaceId,
-    String requestId, {
-    String? result,
-  }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-
-    final detail = _details[spaceId];
-
-    if (detail == null) {
-      throw StateError('공간 상세 정보를 찾을 수 없습니다.');
-    }
-
-    final requestIndex = detail.reinspectionRequests.indexWhere(
-      (request) => request.id == requestId,
-    );
-
-    if (requestIndex == -1) {
-      throw StateError('재조사 요청을 찾을 수 없습니다.');
-    }
-
-    final oldRequest = detail.reinspectionRequests[requestIndex];
-
-    if (oldRequest.isResolved) return;
-
-    final updatedRequests = [...detail.reinspectionRequests];
-
-    updatedRequests[requestIndex] = ReinspectionRequest(
-      id: oldRequest.id,
-      message: oldRequest.message,
-      requestedAt: oldRequest.requestedAt,
-      category: oldRequest.category,
-      isResolved: true,
-      resolvedAt: DateTime.now(),
-    );
-
-    final now = DateTime.now();
-    final updatedSpace = detail.space.copyWith(
-      updatedAt: now,
-      reinspectionRequestCount: (detail.space.reinspectionRequestCount - 1)
-          .clamp(0, 999999)
-          .toInt(),
-    );
-
-    final spaceIndex = _spaces.indexWhere((space) => space.id == spaceId);
-
-    if (spaceIndex != -1) {
-      _spaces[spaceIndex] = updatedSpace;
-    }
-
-    _details[spaceId] = _copyDetail(
-      detail,
-      space: updatedSpace,
-      reinspectionRequests: updatedRequests,
-      reinspectionResult: result?.trim().isNotEmpty == true
-          ? result!.trim()
-          : detail.reinspectionResult,
-      activities: [
-        ...detail.activities,
-        AdminSpaceActivity(
-          id: 'activity-${now.microsecondsSinceEpoch}',
-          title: '최근 수정',
-          description: result?.trim().isNotEmpty == true
-              ? '재조사 처리 결과: ${result!.trim()}'
-              : '재조사 요청이 처리되었습니다. ${oldRequest.message}',
-          createdAt: now,
-        ),
-      ],
-    );
-  }
-
   // 화면의 CTA 한 번으로 현재 접수된 요청을 모두 처리하고 결과 이력은 한 건만 남긴다.
   @override
   Future<void> resolveAllReinspections(
     String spaceId, {
     required String result,
+    bool makePrivate = false,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
@@ -263,7 +203,7 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
                   id: request.id,
                   message: request.message,
                   requestedAt: request.requestedAt,
-                  category: request.category,
+                  categories: request.categories,
                   isResolved: true,
                   resolvedAt: now,
                 ),
@@ -272,6 +212,7 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
     final updatedSpace = detail.space.copyWith(
       updatedAt: now,
       reinspectionRequestCount: 0,
+      isPublic: makePrivate ? false : detail.space.isPublic,
     );
 
     final spaceIndex = _spaces.indexWhere((space) => space.id == spaceId);
@@ -281,6 +222,7 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
       space: updatedSpace,
       reinspectionRequests: updatedRequests,
       reinspectionResult: result.trim(),
+      lastResolvedAt: now,
       activities: [
         ...detail.activities,
         AdminSpaceActivity(
@@ -291,38 +233,6 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
           actor: '관리자',
         ),
       ],
-    );
-  }
-
-  // 상세 데이터 복사 및 일부 항목 갱신
-  AdminSpaceDetail _copyDetail(
-    AdminSpaceDetail detail, {
-    AdminSpace? space,
-    List<ReinspectionRequest>? reinspectionRequests,
-    String? reinspectionResult,
-    List<AdminSpaceActivity>? activities,
-  }) {
-    return AdminSpaceDetail(
-      space: space ?? detail.space,
-      photos: detail.photos,
-      purpose: detail.purpose,
-      isCafe: detail.isCafe,
-      canTalk: detail.canTalk,
-      is24Hours: detail.is24Hours,
-      startMinute: detail.startMinute,
-      endMinute: detail.endMinute,
-      noiseLevel: detail.noiseLevel,
-      tableCount: detail.tableCount,
-      maxPeoplePerTable: detail.maxPeoplePerTable,
-      chargingTableCount: detail.chargingTableCount,
-      hasFreeWifi: detail.hasFreeWifi,
-      goodPoints: detail.goodPoints,
-      badPoints: detail.badPoints,
-      memo: detail.memo,
-      surveyor: detail.surveyor,
-      reinspectionRequests: reinspectionRequests ?? detail.reinspectionRequests,
-      reinspectionResult: reinspectionResult ?? detail.reinspectionResult,
-      activities: activities ?? detail.activities,
     );
   }
 

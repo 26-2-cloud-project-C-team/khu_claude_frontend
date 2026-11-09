@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/reinspection_category.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/selected_space_photo_image.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/date_format.dart';
@@ -53,6 +54,7 @@ class _AdminSpaceDetailView extends StatefulWidget {
 
 class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
   bool _isReviewingRequests = false;
+  bool _makePrivateAfterResolve = false;
   late final TextEditingController _resolutionController;
 
   @override
@@ -135,16 +137,17 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
                     ? _ReinspectionReviewBody(
                         requests: pendingRequests,
                         resultController: _resolutionController,
+                        makePrivate: _makePrivateAfterResolve,
+                        onMakePrivateChanged: (value) => setState(
+                          () => _makePrivateAfterResolve = value,
+                        ),
                       )
                     : _SpaceDetailBody(
                         detail: detail,
                         pendingRequests: pendingRequests,
                         isUpdating: viewModel.isUpdating,
                         onVisibilityChanged: _updateVisibility,
-                        onOpenRequests: () {
-                          _resolutionController.clear();
-                          setState(() => _isReviewingRequests = true);
-                        },
+                        onOpenRequests: _openReinspectionReview,
                         onEditSection: (section) =>
                             _editSection(viewModel, section),
                       ),
@@ -163,13 +166,21 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
               else if (!_isReviewingRequests && pendingRequests.isNotEmpty)
                 _BottomAction(
                   label: '재조사 요청 처리하기',
-                  onPressed: () => setState(() => _isReviewingRequests = true),
+                  onPressed: _openReinspectionReview,
                 ),
             ],
           );
         },
       ),
     );
+  }
+
+  void _openReinspectionReview() {
+    _resolutionController.clear();
+    setState(() {
+      _makePrivateAfterResolve = false;
+      _isReviewingRequests = true;
+    });
   }
 
   Future<void> _editSection(
@@ -212,13 +223,24 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
       return;
     }
 
-    final success = await viewModel.resolveAllReinspections(result: result);
+    final makePrivate = _makePrivateAfterResolve;
+    final success = await viewModel.resolveAllReinspections(
+      result: result,
+      makePrivate: makePrivate,
+    );
     if (!mounted) return;
 
     if (success) {
       await context.read<AdminSpaceListViewModel>().load();
-      setState(() => _isReviewingRequests = false);
-      _showMessage('재조사 요청 처리가 완료되었습니다.');
+      setState(() {
+        _isReviewingRequests = false;
+        _makePrivateAfterResolve = false;
+      });
+      _showMessage(
+        makePrivate
+            ? '재조사 요청 처리가 완료되었고 공간을 비공개로 전환했습니다.'
+            : '재조사 요청 처리가 완료되었습니다.',
+      );
     } else {
       _showMessage(viewModel.errorMessage ?? '재조사 요청 처리에 실패했습니다.');
     }
@@ -401,8 +423,8 @@ class _PhotoThumbnail extends StatelessWidget {
                   size: 24,
                 )
               else
-                Image.memory(
-                  photo!.bytes,
+                SelectedSpacePhotoImage(
+                  photo: photo!,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => const Icon(
                     Icons.broken_image_outlined,
@@ -479,8 +501,8 @@ class _AdminPhotoViewerState extends State<_AdminPhotoViewer> {
               onPageChanged: (index) => setState(() => _index = index),
               itemBuilder: (_, index) => InteractiveViewer(
                 child: Center(
-                  child: Image.memory(
-                    widget.photos[index].bytes,
+                  child: SelectedSpacePhotoImage(
+                    photo: widget.photos[index],
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) => const Icon(
                       Icons.broken_image_outlined,
@@ -583,16 +605,19 @@ class _ReinspectionSummaryCard extends StatelessWidget {
     );
     final categoryCounts = <ReinspectionCategory, int>{};
     for (final request in requests) {
-      categoryCounts.update(
-        request.category,
-        (count) => count + 1,
-        ifAbsent: () => 1,
-      );
+      for (final category in request.categories) {
+        categoryCounts.update(
+          category,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
+      }
     }
     final representative = categoryCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final mainCategory = representative.first;
-    final remainingCount = requests.length - mainCategory.value;
+    final remainingCount =
+        (requests.length - mainCategory.value).clamp(0, requests.length);
 
     return Material(
       color: AppColors.primaryTint,
@@ -652,6 +677,7 @@ class _NoReinspectionCard extends StatelessWidget {
         .where((request) => request.isResolved && request.resolvedAt != null)
         .map((request) => request.resolvedAt!)
         .toList();
+    if (detail.lastResolvedAt != null) resolved.add(detail.lastResolvedAt!);
     resolved.sort((a, b) => b.compareTo(a));
 
     return AppCard(
@@ -897,10 +923,14 @@ class _ReinspectionReviewBody extends StatelessWidget {
   const _ReinspectionReviewBody({
     required this.requests,
     required this.resultController,
+    required this.makePrivate,
+    required this.onMakePrivateChanged,
   });
 
   final List<ReinspectionRequest> requests;
   final TextEditingController resultController;
+  final bool makePrivate;
+  final ValueChanged<bool> onMakePrivateChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -908,7 +938,9 @@ class _ReinspectionReviewBody extends StatelessWidget {
       ..sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
     final groupedRequests = <ReinspectionCategory, List<ReinspectionRequest>>{};
     for (final request in sortedRequests) {
-      groupedRequests.putIfAbsent(request.category, () => []).add(request);
+      for (final category in request.categories) {
+        groupedRequests.putIfAbsent(category, () => []).add(request);
+      }
     }
     final categories = ReinspectionCategory.values
         .where(groupedRequests.containsKey)
@@ -969,6 +1001,15 @@ class _ReinspectionReviewBody extends StatelessWidget {
             lines: 4,
           ),
           const SizedBox(height: 12),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('공간을 비공개로 전환'),
+            subtitle: const Text('재조사 처리와 함께 사용자 공간 목록에서 숨깁니다.'),
+            value: makePrivate,
+            activeTrackColor: AppColors.positive,
+            onChanged: onMakePrivateChanged,
+          ),
+          const SizedBox(height: 12),
           Text(
             '확인 결과를 공개하면 현재 접수된 미처리 요청이 모두 완료 처리됩니다.',
             style: AppTypography.caption,
@@ -991,7 +1032,7 @@ class _ReinspectionRequestRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(request.category.label, style: AppTypography.h3),
+          Text(request.categories.map((category) => category.label).join(' · '), style: AppTypography.h3),
           const SizedBox(height: 4),
           Text(
             request.message.trim().isEmpty

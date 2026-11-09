@@ -27,6 +27,7 @@ class AdminSpaceDetail {
     required this.surveyor,
     this.reinspectionRequests = const [],
     this.reinspectionResult = '',
+    this.lastResolvedAt,
     this.activities = const [],
   });
 
@@ -59,6 +60,7 @@ class AdminSpaceDetail {
   // 재조사 요청 및 활동 이력
   final List<ReinspectionRequest> reinspectionRequests;
   final String reinspectionResult;
+  final DateTime? lastResolvedAt;
   final List<AdminSpaceActivity> activities;
 
   AdminSpaceDetail copyWith({
@@ -81,6 +83,7 @@ class AdminSpaceDetail {
     String? surveyor,
     List<ReinspectionRequest>? reinspectionRequests,
     String? reinspectionResult,
+    DateTime? lastResolvedAt,
     List<AdminSpaceActivity>? activities,
   }) {
     return AdminSpaceDetail(
@@ -103,6 +106,7 @@ class AdminSpaceDetail {
       surveyor: surveyor ?? this.surveyor,
       reinspectionRequests: reinspectionRequests ?? this.reinspectionRequests,
       reinspectionResult: reinspectionResult ?? this.reinspectionResult,
+      lastResolvedAt: lastResolvedAt ?? this.lastResolvedAt,
       activities: activities ?? this.activities,
     );
   }

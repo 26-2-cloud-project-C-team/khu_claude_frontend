@@ -106,8 +106,16 @@ class AdminAuthViewModel extends ChangeNotifier {
     }
   }
 
-  /// 현재 앱 메모리의 로그인 상태만 지운다.
-  /// 서버 로그아웃 API 경로는 제공된 명세에 없어 세션 쿠키 폐기는 수행하지 않는다.
+  /// 서버 세션 쿠키를 만료 처리한 뒤 앱의 로그인 상태를 정리한다.
+  Future<void> signOut() async {
+    try {
+      await _repository.signOut();
+    } finally {
+      clearLocalSession();
+    }
+  }
+
+  /// 앱 메모리의 로그인 상태를 정리한다.
   void clearLocalSession() {
     _admin = null;
     _errorMessage = null;

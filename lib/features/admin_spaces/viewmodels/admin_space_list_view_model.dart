@@ -47,8 +47,8 @@ class AdminSpaceListViewModel extends ChangeNotifier {
       return matchesSearch && matchesFilter;
     }).toList();
 
-    filtered.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
+    // 백엔드가 재조사 요청 우선 및 오래된 수정 시각 순으로 정렬하므로
+    // 클라이언트에서는 검색·필터만 적용하고 서버 순서를 유지한다.
     return filtered;
   }
 

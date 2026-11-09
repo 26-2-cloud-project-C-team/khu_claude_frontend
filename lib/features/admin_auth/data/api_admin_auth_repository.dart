@@ -22,6 +22,11 @@ class ApiAdminAuthRepository implements AdminAuthRepository {
   }
 
   @override
+  Future<void> signOut() async {
+    await _apiClient.post('/api/admin/auth/logout');
+  }
+
+  @override
   Future<AdminUser?> fetchCurrentAdmin() async {
     try {
       final response = await _apiClient.get('/api/admin/me');

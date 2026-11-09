@@ -5,17 +5,21 @@ import '../../../core/models/space_photo.dart';
 import '../../../core/widgets/app_step_scaffold.dart';
 import '../data/admin_space_repository.dart';
 import '../models/admin_space.dart';
-import '../models/admin_space_activity.dart';
 import '../models/admin_space_detail.dart';
 import '../models/selected_space_photo.dart';
 import '../viewmodels/admin_space_form_view_model.dart';
 import '../viewmodels/admin_space_list_view_model.dart';
+import '../../admin_auth/viewmodels/admin_auth_view_model.dart';
+import '../../../core/errors/app_exception.dart';
 
 import 'steps/photo_step.dart';
 import 'steps/location_step.dart';
 import 'steps/rules_noise_step.dart';
 import 'steps/facilities_step.dart';
 import 'steps/field_survey_step.dart';
+
+
+
 
 class AdminSpaceCreatePage extends StatelessWidget {
   const AdminSpaceCreatePage({super.key, required this.onBack});
@@ -25,7 +29,9 @@ class AdminSpaceCreatePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AdminSpaceFormViewModel(),
+      create: (context) => AdminSpaceFormViewModel(
+        repository: context.read<AdminSpaceRepository>(),
+      ),
       child: _AdminSpaceCreateContent(onBack: onBack),
     );
   }
@@ -77,13 +83,21 @@ class _AdminSpaceCreateContent extends StatelessWidget {
               if (building == null || floor == null) return;
 
               final now = DateTime.now();
+              final floorLabel = floor < 0
+                  ? '지하 ${floor.abs()}층'
+                  : '$floor층';
               final space = AdminSpace(
-                id: 'space-${now.microsecondsSinceEpoch}',
+                // 실제 ID는 백엔드가 생성하므로 등록 요청에서는 사용하지 않는다.
+                id: '',
                 name: viewModel.spaceName.trim(),
-                location:
-                    '${building.name} · $floor층 · ${viewModel.detailLocation.trim()}',
+                location: '${building.name} · $floorLabel · ${viewModel.detailLocation.trim()}',
                 updatedAt: now,
                 isPublic: true,
+                buildingId: building.id,
+                buildingName: building.name,
+                floor: floor,
+                locationDetail: viewModel.detailLocation.trim(),
+                purposes: [viewModel.purpose!.code],
               );
               final photos = <SelectedSpacePhoto>[
                 for (final tag in PhotoTag.values)
@@ -108,35 +122,63 @@ class _AdminSpaceCreateContent extends StatelessWidget {
                 goodPoints: viewModel.goodPoints,
                 badPoints: viewModel.badPoints,
                 memo: viewModel.memo,
-                surveyor: viewModel.surveyor ?? '',
-                activities: [
-                  AdminSpaceActivity(
-                    id: 'activity-${space.id}',
-                    title: '최초 조사',
-                    description: '공간 정보가 등록되었습니다.',
-                    createdAt: now,
-                    actor: viewModel.surveyor?.trim().isNotEmpty == true
-                        ? viewModel.surveyor!.trim()
-                        : '관리자',
-                  ),
-                ],
+                surveyor: '',
               );
 
               try {
                 final repository = context.read<AdminSpaceRepository>();
                 final listViewModel = context.read<AdminSpaceListViewModel>();
+                final surveyorEmail =
+                    context.read<AdminAuthViewModel>().admin?.email;
+                if (surveyorEmail == null || surveyorEmail.isEmpty) {
+                  throw StateError('로그인한 관리자 이메일을 확인할 수 없습니다.');
+                }
 
-                await repository.addSpace(space, detail: detail);
+                await repository.addSpace(
+                  space,
+                  detail: detail,
+                  surveyorEmail: surveyorEmail,
+                );
                 await listViewModel.refreshAfterCreate();
 
                 if (!context.mounted) return;
 
                 onBack();
-              } catch (e) {
+              } catch (error, stackTrace) {
+                debugPrint('[SPACE_CREATE] Failed: $error');
+                debugPrintStack(stackTrace: stackTrace);
+
                 if (!context.mounted) return;
 
+                var message = error.toString();
+
+                if (error is AppException) {
+                  final details = error.fieldErrors
+                      .map((field) =>
+                          '${field.field}: ${field.reason}')
+                      .join('\n');
+
+                  message = [
+                    if (error.statusCode != null)
+                      'HTTP ${error.statusCode}',
+                    if (error.code != null)
+                      error.code!,
+                    if (error.message != null)
+                      error.message!,
+                    if (details.isNotEmpty)
+                      details,
+                  ].join('\n');
+
+                  if (message.isEmpty) {
+                    message = error.toString();
+                  }
+                }
+
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('공간 등록에 실패했습니다. 다시 시도해주세요.')),
+                  SnackBar(
+                    content: Text('공간 등록 실패\n$message'),
+                    duration: const Duration(seconds: 10),
+                  ),
                 );
               }
             }

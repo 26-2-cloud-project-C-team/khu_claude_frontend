@@ -6,6 +6,7 @@ import '../../../core/models/noise_level.dart';
 import '../../../core/models/purpose.dart';
 import '../../../core/models/space_photo.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/selected_space_photo_image.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
@@ -157,7 +158,9 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
     super.initState();
     final detail = widget.detail;
     _nameController = TextEditingController(text: detail.space.name);
-    _locationController = TextEditingController(text: detail.space.location);
+    _locationController = TextEditingController(
+      text: detail.space.locationDetail ?? detail.space.location,
+    );
     _purposeController = TextEditingController(text: detail.purpose);
     _goodPointsController = TextEditingController(text: detail.goodPoints);
     _badPointsController = TextEditingController(text: detail.badPoints);
@@ -255,20 +258,26 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
             _locationController.text.trim().isNotEmpty &&
             _purposeController.text.trim().isNotEmpty;
       case AdminSpaceEditSection.photos:
-        return _requiredPhotos.every((photo) => photo != null) &&
+        return _requiredPhotos.every(
+              (photo) =>
+                  photo != null && (photo.isUploaded || photo.hasLocalBytes),
+            ) &&
             _requiredPhotos.length + _extraPhotos.length <= 10;
       case AdminSpaceEditSection.rules:
         return _is24Hours || _endMinute > _startMinute;
       case AdminSpaceEditSection.facilities:
-        return _tableCount >= 0 &&
+        return _tableCount >= 1 &&
             _tableCount <= 40 &&
             _maxPeoplePerTable >= 1 &&
             _maxPeoplePerTable <= 8 &&
             _chargingTableCount >= 0 &&
             _chargingTableCount <= _tableCount;
       case AdminSpaceEditSection.fieldSurvey:
-        return _goodPointsController.text.length <= 40 &&
+        return _goodPointsController.text.trim().isNotEmpty &&
+            _goodPointsController.text.length <= 40 &&
+            _badPointsController.text.trim().isNotEmpty &&
             _badPointsController.text.length <= 40 &&
+            _memoController.text.trim().isNotEmpty &&
             _memoController.text.length <= 100;
     }
   }
@@ -282,8 +291,13 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
             _FieldLabel('공간 이름'),
             AppTextField(controller: _nameController, maxLength: 40),
             const SizedBox(height: 20),
-            _FieldLabel('건물 · 층 · 상세 위치'),
-            AppTextField(controller: _locationController, maxLength: 80),
+            _FieldLabel('상세 위치'),
+            AppTextField(controller: _locationController, maxLength: 40),
+            const SizedBox(height: 6),
+            Text(
+              '${widget.detail.space.buildingName ?? ''} · ${widget.detail.space.floor == null ? '' : (widget.detail.space.floor! < 0 ? '지하 ${widget.detail.space.floor!.abs()}층' : '${widget.detail.space.floor}층')}',
+              style: AppTypography.caption,
+            ),
             const SizedBox(height: 20),
             _FieldLabel('어울리는 이용 목적'),
             DropdownButtonFormField<String>(
@@ -454,7 +468,7 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
             AppStepperRow(
               label: '테이블',
               value: _tableCount,
-              min: 0,
+              min: 1,
               max: 40,
               unit: '개',
               onChanged: (value) => setState(() {
@@ -523,7 +537,9 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
     final current = isStart ? _startMinute : _endMinute;
     final initial = TimeOfDay(
       hour: current == 1440 ? 23 : current ~/ 60,
-      minute: current == 1440 ? 30 : (current % 60),
+      // 백엔드 시간 형식은 30분 단위다. 24:00은 23:45로 열어
+      // 그대로 확인했을 때 24:00으로 반올림되도록 한다.
+      minute: current == 1440 ? 45 : (current % 60),
     );
     final picked = await showTimePicker(
       context: context,
@@ -535,7 +551,8 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
     );
     if (!mounted || picked == null) return;
     setState(() {
-      final minutes = picked.hour * 60 + picked.minute;
+      final roundedMinutes = ((picked.hour * 60 + picked.minute + 15) ~/ 30) * 30;
+      final minutes = roundedMinutes.clamp(0, isStart ? 1410 : 1440).toInt();
       if (isStart) {
         _startMinute = minutes;
       } else {
@@ -620,7 +637,7 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
         updated = current.copyWith(
           space: current.space.copyWith(
             name: _nameController.text.trim(),
-            location: _locationController.text.trim(),
+            locationDetail: _locationController.text.trim(),
           ),
           purpose: purpose,
         );
@@ -772,8 +789,8 @@ class _PhotoEditTile extends StatelessWidget {
                             color: AppColors.gray500,
                           ),
                         )
-                      : Image.memory(
-                          photo!.bytes,
+                      : SelectedSpacePhotoImage(
+                          photo: photo!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => const Icon(
                             Icons.broken_image_outlined,

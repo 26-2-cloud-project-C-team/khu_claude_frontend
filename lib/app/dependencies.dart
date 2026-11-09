@@ -9,7 +9,7 @@ import '../features/admin_auth/data/admin_auth_repository.dart';
 import '../features/admin_auth/data/api_admin_auth_repository.dart';
 import '../features/admin_auth/viewmodels/admin_auth_view_model.dart';
 import '../features/admin_spaces/data/admin_space_repository.dart';
-import '../features/admin_spaces/data/mock_admin_space_repository.dart';
+import '../features/admin_spaces/data/api_admin_space_repository.dart';
 import '../features/admin_spaces/viewmodels/admin_space_list_view_model.dart';
 
 /// 앱 전체에 제공할 의존성. Repository 구현체는 이 목록에 추가한다.
@@ -32,11 +32,13 @@ List<SingleChildWidget> createDependencies() => [
 
   Provider<MapViewFactory>.value(value: const KakaoMapViewFactory()),
 
-  // 공간 CRUD API 명세가 아직 제공되지 않아 현재는 Mock 구현을 유지한다.
-  Provider<AdminSpaceRepository>(create: (_) => MockAdminSpaceRepository()),
+  Provider<AdminSpaceRepository>(
+    create: (context) => ApiAdminSpaceRepository(context.read<ApiClient>()),
+  ),
 
   ChangeNotifierProvider<AdminSpaceListViewModel>(
-    create: (context) =>
-        AdminSpaceListViewModel(context.read<AdminSpaceRepository>())..load(),
+    create: (context) => AdminSpaceListViewModel(
+      context.read<AdminSpaceRepository>(),
+    ),
   ),
 ];

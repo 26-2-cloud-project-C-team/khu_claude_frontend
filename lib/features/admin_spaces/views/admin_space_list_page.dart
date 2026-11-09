@@ -31,6 +31,9 @@ class _AdminSpaceListPageState extends State<AdminSpaceListPage> {
   void initState() {
     super.initState();
     _searchFocusNode.addListener(_onFocusChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AdminSpaceListViewModel>().load();
+    });
   }
 
   void _onFocusChanged() {

@@ -17,7 +17,6 @@ class _FieldSurveyStepState extends State<FieldSurveyStep> {
   late final TextEditingController _goodPointsController;
   late final TextEditingController _badPointsController;
   late final TextEditingController _memoController;
-  late final TextEditingController _surveyorController;
 
   @override
   void initState() {
@@ -28,7 +27,6 @@ class _FieldSurveyStepState extends State<FieldSurveyStep> {
     _goodPointsController = TextEditingController(text: viewModel.goodPoints);
     _badPointsController = TextEditingController(text: viewModel.badPoints);
     _memoController = TextEditingController(text: viewModel.memo);
-    _surveyorController = TextEditingController(text: viewModel.surveyor ?? '');
   }
 
   @override
@@ -36,7 +34,6 @@ class _FieldSurveyStepState extends State<FieldSurveyStep> {
     _goodPointsController.dispose();
     _badPointsController.dispose();
     _memoController.dispose();
-    _surveyorController.dispose();
     super.dispose();
   }
 
@@ -47,7 +44,7 @@ class _FieldSurveyStepState extends State<FieldSurveyStep> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('직접 방문해서 느낀 점과 조사자 정보를 기록해 주세요.', style: AppTypography.body2),
+        Text('직접 방문해서 느낀 점을 기록해 주세요. 모든 항목은 등록에 필요합니다.', style: AppTypography.body2),
         const SizedBox(height: 28),
 
         _InputSection(
@@ -80,26 +77,20 @@ class _FieldSurveyStepState extends State<FieldSurveyStep> {
 
         _InputSection(
           title: '추가 메모',
-          description: '그 외에 남기고 싶은 정보',
+          description: '그 외에 남기고 싶은 정보를 기록해주세요.',
           child: AppTextField(
             controller: _memoController,
-            placeholder: '추가로 기록할 내용이 있다면 입력해 주세요.',
+            placeholder: '예: 평일 오후에는 비교적 한산해요.',
             maxLength: 100,
             lines: 3,
             onChanged: viewModel.setMemo,
           ),
         ),
 
-        const SizedBox(height: 24),
-
-        _InputSection(
-          title: '조사자',
-          description: '현장 조사를 진행한 사람의 이름',
-          child: AppTextField(
-            controller: _surveyorController,
-            placeholder: '이름을 입력해 주세요.',
-            onChanged: viewModel.setSurveyor,
-          ),
+        const SizedBox(height: 12),
+        Text(
+          '조사자 정보는 현재 로그인한 관리자 계정으로 자동 기록됩니다.',
+          style: AppTypography.caption,
         ),
 
         const SizedBox(height: AppSpacing.section),
