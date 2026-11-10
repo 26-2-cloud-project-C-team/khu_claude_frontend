@@ -1,25 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
-class LatLng {
-  const LatLng(this.lat, this.lng);
-
-  factory LatLng.fromJson(Map<String, dynamic> json) =>
-      LatLng((json['lat'] as num).toDouble(), (json['lng'] as num).toDouble());
-
-  final double lat;
-  final double lng;
-
-  @override
-  bool operator ==(Object other) =>
-      other is LatLng && other.lat == lat && other.lng == lng;
-
-  @override
-  int get hashCode => Object.hash(lat, lng);
-
-  @override
-  String toString() => 'LatLng($lat, $lng)';
-}
+import '../utils/geo.dart';
 
 /// 지도 위에 그릴 것. 값이 바뀌면 지도가 다시 그린다.
 @immutable
@@ -31,13 +13,13 @@ class MapOverlays {
   });
 
   /// 경희블루 점.
-  final LatLng? currentLocation;
+  final GeoPoint? currentLocation;
 
   /// 경희레드 핀과 Primary Tint 강조 원.
-  final LatLng? destination;
+  final GeoPoint? destination;
 
   /// 경희레드 선(흰 외곽선). 서버가 준 `path` 그대로다.
-  final List<LatLng> route;
+  final List<GeoPoint> route;
 
   @override
   bool operator ==(Object other) =>
@@ -51,7 +33,7 @@ class MapOverlays {
       Object.hash(currentLocation, destination, Object.hashAll(route));
 }
 
-bool _listEquals(List<LatLng> a, List<LatLng> b) {
+bool _listEquals(List<GeoPoint> a, List<GeoPoint> b) {
   if (a.length != b.length) return false;
   for (var i = 0; i < a.length; i++) {
     if (a[i] != b[i]) return false;
@@ -62,16 +44,16 @@ bool _listEquals(List<LatLng> a, List<LatLng> b) {
 /// 지도를 움직이는 명령. [AppMap.onCreated]로 받는다.
 abstract interface class MapController {
   /// [points]가 모두 보이도록 범위를 맞춘다. 출발점과 목적지를 함께 보여줄 때 쓴다.
-  void fitBounds(List<LatLng> points, {EdgeInsets padding});
+  void fitBounds(List<GeoPoint> points, {EdgeInsets padding});
 
   /// '현재 위치로'처럼 한 점으로 옮긴다.
-  void moveTo(LatLng point);
+  void moveTo(GeoPoint point);
 }
 
 /// 실제 지도 구현. 앱은 카카오맵, 테스트는 Fake를 `provider`로 넣는다.
 abstract interface class MapViewFactory {
   Widget create({
-    required LatLng initialCenter,
+    required GeoPoint initialCenter,
     required MapOverlays overlays,
     ValueChanged<MapController>? onCreated,
   });
@@ -86,7 +68,7 @@ class AppMap extends StatelessWidget {
     this.onCreated,
   });
 
-  final LatLng initialCenter;
+  final GeoPoint initialCenter;
   final MapOverlays overlays;
   final ValueChanged<MapController>? onCreated;
 
