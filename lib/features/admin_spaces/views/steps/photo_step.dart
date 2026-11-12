@@ -8,6 +8,7 @@ import '../../../../core/widgets/selected_space_photo_image.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../models/selected_space_photo.dart';
 import '../../viewmodels/admin_space_form_view_model.dart';
+import '../../utils/space_photo_converter.dart';
 
 class PhotoStep extends StatefulWidget {
   const PhotoStep({super.key});
@@ -23,35 +24,35 @@ class _PhotoStepState extends State<PhotoStep> {
 
   static const int _maxFileSize = 10 * 1024 * 1024;
 
-  Future<SelectedSpacePhoto?> _selectPhoto() async {
-    final file = await _picker.pickImage(source: ImageSource.gallery);
+  
+  Future<SelectedSpacePhoto> _convertPhoto(XFile file) async {
+    final sourceBytes = await file.readAsBytes();
 
-    if (file == null) return null;
-
-    final extension = file.name.split('.').last.toLowerCase();
-
-    final mimeType = switch (extension) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      _ => null,
-    };
-
-    if (mimeType == null) {
-      throw const FormatException('JPG, PNG, WebP 형식의 사진만 선택할 수 있어요.');
+    if (sourceBytes.lengthInBytes > _maxFileSize) {
+      throw const FormatException('원본 사진의 크기는 10MB 이하여야 해요.');
     }
 
-    final bytes = await file.readAsBytes();
+    final jpegBytes = await SpacePhotoConverter.toJpeg(sourceBytes);
 
-    if (bytes.lengthInBytes > _maxFileSize) {
-      throw const FormatException('사진 한 장의 크기는 10MB 이하여야 해요.');
+    if (jpegBytes.lengthInBytes > _maxFileSize) {
+      throw const FormatException('변환된 사진의 크기는 10MB 이하여야 해요.');
     }
 
     return SelectedSpacePhoto(
-      name: file.name,
-      mimeType: mimeType,
-      bytes: bytes,
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      bytes: jpegBytes,
     );
+  }
+
+  Future<SelectedSpacePhoto?> _selectPhoto() async {
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (file == null) return null;
+
+    return _convertPhoto(file);
   }
 
   Future<void> _pickRequiredPhoto(PhotoTag tag) async {
@@ -68,10 +69,13 @@ class _PhotoStepState extends State<PhotoStep> {
     }
   }
 
+  
   Future<void> _pickExtraPhoto() async {
     final viewModel = context.read<AdminSpaceFormViewModel>();
 
-    if (viewModel.photoCount >= 10) {
+    final remaining = 10 - viewModel.photoCount;
+
+    if (remaining <= 0) {
       setState(() {
         _errorMessage = '사진은 최대 10장까지 선택할 수 있어요.';
       });
@@ -79,17 +83,45 @@ class _PhotoStepState extends State<PhotoStep> {
     }
 
     try {
-      final photo = await _selectPhoto();
+      final files = await _picker.pickMultiImage(
+        limit: remaining,
+      );
 
-      if (!mounted || photo == null) return;
+      if (!mounted || files.isEmpty) return;
 
-      viewModel.addExtraPhoto(photo);
+      var addedCount = 0;
+      String? lastError;
 
-      setState(() => _errorMessage = null);
+      for (final file in files) {
+        try {
+          final photo = await _convertPhoto(file);
+
+          if (!viewModel.addExtraPhoto(photo)) {
+            break;
+          }
+
+          addedCount++;
+        } catch (error) {
+          lastError = error is FormatException
+              ? error.message
+              : '사진을 변환하지 못했어요.';
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = lastError;
+      });
+
+      if (addedCount > 0 && lastError == null) {
+        setState(() => _errorMessage = null);
+      }
     } catch (error) {
       _showError(error);
     }
   }
+
 
   void _showError(Object error) {
     if (!mounted) return;

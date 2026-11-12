@@ -17,6 +17,7 @@ import '../models/admin_space_detail.dart';
 import '../models/admin_space_edit_section.dart';
 import '../models/selected_space_photo.dart';
 import '../viewmodels/admin_space_edit_view_model.dart';
+import '../utils/space_photo_converter.dart';
 
 class AdminSpaceEditPage extends StatelessWidget {
   const AdminSpaceEditPage({
@@ -561,31 +562,37 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
     });
   }
 
-  Future<SelectedSpacePhoto?> _pickPhoto() async {
-    final file = await _picker.pickImage(source: ImageSource.gallery);
-    if (file == null) return null;
+  
+  Future<SelectedSpacePhoto> _convertPhoto(XFile file) async {
+    final sourceBytes = await file.readAsBytes();
 
-    final extension = file.name.split('.').last.toLowerCase();
-    final mimeType = switch (extension) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      _ => null,
-    };
-    if (mimeType == null) {
-      throw const FormatException('JPG, PNG, WebP 형식의 사진만 선택할 수 있어요.');
+    if (sourceBytes.lengthInBytes > 10 * 1024 * 1024) {
+      throw const FormatException('원본 사진은 10MB 이하여야 합니다.');
     }
 
-    final bytes = await file.readAsBytes();
-    if (bytes.lengthInBytes > 10 * 1024 * 1024) {
-      throw const FormatException('사진 한 장의 크기는 10MB 이하여야 해요.');
+    final jpegBytes = await SpacePhotoConverter.toJpeg(sourceBytes);
+
+    if (jpegBytes.lengthInBytes > 10 * 1024 * 1024) {
+      throw const FormatException('변환된 사진은 10MB 이하여야 합니다.');
     }
+
     return SelectedSpacePhoto(
-      name: file.name,
-      mimeType: mimeType,
-      bytes: bytes,
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      bytes: jpegBytes,
     );
   }
+
+  Future<SelectedSpacePhoto?> _pickPhoto() async {
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (file == null) return null;
+
+    return _convertPhoto(file);
+  }
+
 
   Future<void> _pickRequiredPhoto(int index) async {
     try {
@@ -605,27 +612,70 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
     }
   }
 
+  
   Future<void> _pickExtraPhoto({int? replaceIndex}) async {
     try {
-      final photo = await _pickPhoto();
-      if (!mounted || photo == null) return;
-      setState(() {
-        if (replaceIndex == null) {
-          _extraPhotos.add(photo);
-        } else {
+      // 기존 사진 교체는 한 장만 선택
+      if (replaceIndex != null) {
+        final photo = await _pickPhoto();
+
+        if (!mounted || photo == null) return;
+
+        setState(() {
           _extraPhotos[replaceIndex] = photo;
+          _photoError = null;
+        });
+
+        return;
+      }
+
+      // 새 사진 추가는 여러 장 선택
+      final requiredCount =
+          _requiredPhotos.where((photo) => photo != null).length;
+
+      final remaining = 10 - requiredCount - _extraPhotos.length;
+
+      if (remaining <= 0) {
+        setState(() => _photoError = '사진은 최대 10장까지 선택할 수 있습니다.');
+        return;
+      }
+
+      final files = await _picker.pickMultiImage(
+        limit: remaining,
+      );
+
+      if (!mounted || files.isEmpty) return;
+
+      final convertedPhotos = <SelectedSpacePhoto>[];
+      String? lastError;
+
+      for (final file in files) {
+        try {
+          convertedPhotos.add(await _convertPhoto(file));
+        } catch (error) {
+          lastError = error is FormatException
+              ? error.message
+              : '사진을 변환하지 못했습니다.';
         }
-        _photoError = null;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _extraPhotos.addAll(convertedPhotos);
+        _photoError = lastError;
       });
     } catch (error) {
       if (!mounted) return;
+
       setState(
         () => _photoError = error is FormatException
             ? error.message
-            : '사진을 불러오지 못했어요. 다시 시도해주세요.',
+            : '사진을 불러오지 못했습니다. 다시 시도해주세요.',
       );
     }
   }
+
 
   void _save() {
     final current = widget.detail;
