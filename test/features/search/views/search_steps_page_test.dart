@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:team_frontend/core/widgets/app_button.dart';
 import 'package:team_frontend/core/location/location_repository.dart';
 import 'package:team_frontend/core/models/purpose.dart';
+import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/features/search/models/search_condition.dart';
 import 'package:team_frontend/features/search/models/search_result.dart';
 import 'package:team_frontend/features/search/viewmodels/search_flow_view_model.dart';
@@ -57,6 +58,28 @@ void main() {
     expect(find.text('현재 위치에서 출발할까요?'), findsOneWidget);
     expect(find.text('공학관 앞 · 정확도 ±20m'), findsOneWidget);
     expect(cta(tester, '이 위치에서 시작').onPressed, isNotNull);
+  });
+
+  testWidgets('가까운 건물이 없으면 건물 이름 없이 현재 위치 카드를 보여준다', (tester) async {
+    // 공학관에서 북쪽으로 약 390m
+    location.fix = const LocationFix(point: GeoPoint(37.2500, 127.0802), accuracyMeters: 20);
+
+    await pumpPage(tester);
+
+    expect(find.text('현재 위치 · 정확도 ±20m'), findsOneWidget);
+    expect(find.textContaining('공학관'), findsNothing);
+    expect(cta(tester, '이 위치에서 시작').onPressed, isNotNull);
+    expect(chooseBuildingUnavailable, isNull);
+  });
+
+  testWidgets('위치를 얻었으면 건물 목록이 비어도 US-03으로 보내지 않는다', (tester) async {
+    vm = SearchFlowViewModel(searchRepository: FakeSearchRepository(), locationRepository: location)
+      ..startWithPurpose(Purpose.solo);
+
+    await pumpPage(tester);
+
+    expect(chooseBuildingUnavailable, isNull);
+    expect(find.text('현재 위치 · 정확도 ±20m'), findsOneWidget);
   });
 
   testWidgets('위치를 못 가져오면 바로 US-03으로 보낸다', (tester) async {

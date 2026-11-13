@@ -195,7 +195,7 @@ class _OriginBody extends StatelessWidget {
     final (title, detail) = switch (origin) {
       CurrentLocationOrigin(:final fix, :final nearestBuilding) => (
         '현재 위치',
-        '${nearestBuilding.name} 앞 · 정확도 ±${fix.accuracyMeters.round()}m',
+        '${nearestBuilding == null ? '현재 위치' : '${nearestBuilding.name} 앞'} · 정확도 ±${fix.accuracyMeters.round()}m',
       ),
       BuildingOrigin(:final building) => ('출발 건물', building.name),
     };
