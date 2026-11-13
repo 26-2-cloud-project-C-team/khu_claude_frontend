@@ -17,18 +17,19 @@ sealed class Origin {
 }
 
 class CurrentLocationOrigin extends Origin {
-  const CurrentLocationOrigin({required this.fix, required this.nearestBuilding});
+  const CurrentLocationOrigin({required this.fix, this.nearestBuilding});
 
   final LocationFix fix;
 
-  /// 현재 위치에서 가장 가까운 건물. 카드 문구('공학관 앞')에만 쓴다.
-  final Building nearestBuilding;
+  /// 현재 위치에서 [nearbyBuildingMaxMeters] 안의 가장 가까운 건물. 카드 문구('공학관 앞')에만 쓴다.
+  /// 근처에 건물이 없으면 null이고 '현재 위치'로 보여준다. 검색 거리는 [fix] 좌표로 계산한다.
+  final Building? nearestBuilding;
 
   @override
   GeoPoint get point => fix.point;
 
   @override
-  String get label => nearestBuilding.name;
+  String get label => nearestBuilding?.name ?? '현재 위치';
 
   @override
   String get apiParam => 'geo:${fix.point.lat},${fix.point.lng}';
@@ -55,8 +56,18 @@ class BuildingOrigin extends Origin {
   int get hashCode => building.hashCode;
 }
 
-/// [from]에서 가장 가까운 건물. 목록이 비면 null.
-Building? nearestBuilding(GeoPoint from, Iterable<Building> buildings) {
+/// 현재 위치 카드에 '<건물명> 앞'으로 붙일 수 있는 최대 거리(m).
+///
+/// U1은 공개 공간이 있는 건물만 주므로, 목록에서 가장 가까운 건물이 실제로는 먼 건물일 수 있다.
+// TODO: 전체 건물을 주는 공개 API가 생기면 그 목록으로 계산한다.
+const double nearbyBuildingMaxMeters = 150;
+
+/// [from]에서 [maxMeters] 안의 가장 가까운 건물. 목록이 비었거나 모두 그보다 멀면 null.
+Building? nearestBuilding(
+  GeoPoint from,
+  Iterable<Building> buildings, {
+  double maxMeters = nearbyBuildingMaxMeters,
+}) {
   Building? best;
   var bestDistance = double.infinity;
   for (final b in buildings) {
@@ -66,5 +77,5 @@ Building? nearestBuilding(GeoPoint from, Iterable<Building> buildings) {
       bestDistance = d;
     }
   }
-  return best;
+  return bestDistance <= maxMeters ? best : null;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:team_frontend/core/location/location_repository.dart';
 import 'package:team_frontend/core/models/purpose.dart';
+import 'package:team_frontend/core/utils/geo.dart';
 import 'package:team_frontend/features/search/models/origin.dart';
 import 'package:team_frontend/features/search/models/requirement.dart';
 import 'package:team_frontend/features/search/models/search_condition.dart';
@@ -81,13 +82,42 @@ void main() {
       expect(vm.originStatus, OriginStatus.unavailable);
     });
 
-    test('건물 목록을 못 받아도 unavailable이다', () async {
+    test('위치를 얻었으면 건물 목록을 못 받아도 located이고 건물 이름은 없다', () async {
       search.failBuildings = true;
 
       await vm.locate();
 
-      expect(vm.originStatus, OriginStatus.unavailable);
+      expect(vm.originStatus, OriginStatus.located);
       expect(vm.buildingsFailed, isTrue);
+      final origin = vm.condition.origin as CurrentLocationOrigin;
+      expect(origin.nearestBuilding, isNull);
+      expect(origin.label, '현재 위치');
+    });
+
+    test('위치를 얻었으면 U1 목록이 비어도 located다 (US-03으로 보내지 않는다)', () async {
+      search.buildings = const [];
+      vm.startWithPurpose(Purpose.solo);
+
+      await vm.locate();
+
+      expect(vm.originStatus, OriginStatus.located);
+      expect((vm.condition.origin as CurrentLocationOrigin).nearestBuilding, isNull);
+      expect(vm.canProceed, isTrue);
+    });
+
+    test('가장 가까운 건물이 150m보다 멀면 건물 이름 없이 현재 위치 출발점이 된다', () async {
+      // 공학관에서 북쪽으로 약 390m
+      const far = GeoPoint(37.2500, 127.0802);
+      location.fix = const LocationFix(point: far, accuracyMeters: 15);
+
+      await vm.locate();
+
+      expect(vm.originStatus, OriginStatus.located);
+      final origin = vm.condition.origin as CurrentLocationOrigin;
+      expect(origin.nearestBuilding, isNull);
+      expect(origin.label, '현재 위치');
+      // 검색에는 실제 좌표를 쓴다.
+      expect(origin.apiParam, 'geo:37.25,127.0802');
     });
 
     test('공개 공간이 있는 건물이 없어도(빈 목록) 받은 것으로 보고 다시 부르지 않는다', () async {

@@ -147,13 +147,17 @@ class SearchFlowViewModel extends ChangeNotifier {
       fix = null;
     }
 
-    final buildings = await loadBuildings();
-    final nearest = fix == null ? null : nearestBuilding(fix.point, buildings);
-    if (fix == null || nearest == null) {
+    // US-03으로 보내는 건 위치를 못 얻었을 때뿐이다. 건물 목록이 비었거나 근처에 건물이 없어도
+    // 검색은 실제 좌표로 하므로 현재 위치를 출발점으로 쓴다.
+    if (fix == null) {
       _originStatus = OriginStatus.unavailable;
     } else {
+      final buildings = await loadBuildings();
       _condition = _condition.copyWith(
-        origin: CurrentLocationOrigin(fix: fix, nearestBuilding: nearest),
+        origin: CurrentLocationOrigin(
+          fix: fix,
+          nearestBuilding: nearestBuilding(fix.point, buildings),
+        ),
       );
       _originStatus = OriginStatus.located;
     }
