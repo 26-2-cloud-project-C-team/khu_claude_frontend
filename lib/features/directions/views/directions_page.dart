@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/map/app_map.dart';
 import '../../../core/models/building.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/geo.dart';
 import '../../../core/widgets/app_screen_parts.dart';
 import '../../search/models/candidate.dart';
 import '../models/directions_stage.dart';
@@ -42,13 +44,49 @@ class DirectionsPage extends StatefulWidget {
 class _DirectionsPageState extends State<DirectionsPage> {
   DirectionsViewModel get _vm => widget.viewModel;
 
+  MapController? _map;
+
+  /// 마지막으로 범위를 맞춘 출발점. 출발점이 정해지거나(복구 후 위치 · 건물 선택) 바뀔 때만 다시 맞춘다.
+  GeoPoint? _focusedStart;
+  bool _focused = false;
+
   @override
   void initState() {
     super.initState();
+    _vm.addListener(_refocusIfStartChanged);
     _vm.start().then((_) {
       // 복구로 들어와 현재 위치도 없으면 US-03을 먼저 띄운다. 닫으면 ②(핀만 있는 지도)에 남는다.
       if (mounted && _vm.lacksOrigin) _chooseOrigin();
     });
+  }
+
+  @override
+  void dispose() {
+    _vm.removeListener(_refocusIfStartChanged);
+    super.dispose();
+  }
+
+  void _onMapCreated(MapController map) {
+    _map = map;
+    _focusMap();
+  }
+
+  void _refocusIfStartChanged() {
+    if (_focused && _vm.startPoint != _focusedStart) _focusMap();
+  }
+
+  /// 출발점과 목적지가 모두 보이게 맞춘다. 출발점이 없으면(②) 목적지를 가운데로 옮긴다.
+  void _focusMap() {
+    final map = _map;
+    if (map == null) return;
+    final points = _vm.mapFocusPoints;
+    if (points.length == 1) {
+      map.moveTo(points.single);
+    } else {
+      map.fitBounds(points, padding: const EdgeInsets.all(AppSpacing.section));
+    }
+    _focused = true;
+    _focusedStart = _vm.startPoint;
   }
 
   Future<void> _chooseOrigin() async {
@@ -70,7 +108,6 @@ class _DirectionsPageState extends State<DirectionsPage> {
             onClose: widget.onClose,
           );
         }
-        final destination = _vm.destination.buildingName;
         return Scaffold(
           body: SafeArea(
             bottom: false,
@@ -80,21 +117,30 @@ class _DirectionsPageState extends State<DirectionsPage> {
                   title: _vm.stage == DirectionsStage.moving ? '길찾기' : '내부 안내',
                   onClose: widget.onClose,
                 ),
-                // TODO(A-12): 카카오맵 래퍼로 바꾼다. 현재 위치 = 경희블루 점, 목적지 = 경희레드 핀,
-                // 경로 = 경희레드 선. 진입 시 출발점·목적지가 모두 보이게 범위를 맞춘다.
-                // ②(lacksOrigin)는 경로선 · 현재 위치 점 · '현재 위치로' 버튼 없이 목적지 핀과 Tint 건물만,
-                // 목적지 건물이 가운데 오도록 맞춘다.
+                // 현재 위치 = 경희블루 점, 목적지 = 경희레드 핀 + Tint 건물, 경로 = 경희레드 선.
+                // ②(lacksOrigin)는 경로선 · 현재 위치 점 없이 목적지 핀과 Tint 건물만 둔다.
                 Expanded(
-                  child: Container(
-                    key: const ValueKey('map-placeholder'),
-                    color: AppColors.gray100,
-                    alignment: Alignment.center,
-                    child: Text(
-                      _vm.lacksOrigin
-                          ? destination
-                          : '${_vm.originLabel ?? '현재 위치'} → $destination',
-                      style: AppTypography.body2.copyWith(color: AppColors.gray600),
-                    ),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: AppMap(
+                          initialCenter: _vm.startPoint ?? _vm.destination.buildingLocation,
+                          overlays: MapOverlays(
+                            currentLocation: _vm.mapCurrentLocation,
+                            destination: _vm.destination.buildingLocation,
+                            route: _vm.mapRoute,
+                          ),
+                          onCreated: _onMapCreated,
+                        ),
+                      ),
+                      // ②는 위치 권한이 없으므로 버튼을 두지 않는다. 아직 현재 위치를 못 받았을 때도 숨긴다.
+                      if (_vm.mapCurrentLocation case final here?)
+                        Positioned(
+                          right: AppSpacing.screenHorizontal,
+                          bottom: AppSpacing.between,
+                          child: _CurrentLocationButton(onTap: () => _map?.moveTo(here)),
+                        ),
+                    ],
                   ),
                 ),
                 if (_vm.isResolvingOrigin)
@@ -109,6 +155,42 @@ class _DirectionsPageState extends State<DirectionsPage> {
           ),
         );
       },
+    );
+  }
+}
+
+/// '현재 위치로'. 지도 우측 하단(경로 시트 바로 위)의 흰 원형 버튼이다.
+// 위치는 화면 설계서 US-06 '우측 현재 위치로 버튼', 아이콘 색은 디자인 시스템 '경희블루 = 현재 위치'를 따랐다.
+// 정확한 모양은 디자인 확인이 필요하다.
+class _CurrentLocationButton extends StatelessWidget {
+  const _CurrentLocationButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '현재 위치로',
+      button: true,
+      child: Tooltip(
+        message: '현재 위치로',
+        child: Material(
+          color: AppColors.white,
+          shape: const CircleBorder(),
+          elevation: 2,
+          shadowColor: AppColors.gray900.withValues(alpha: 0.2),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            child: const SizedBox.square(
+              dimension: 44,
+              child: Icon(Icons.my_location, size: 22, color: AppColors.khuBlue),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
