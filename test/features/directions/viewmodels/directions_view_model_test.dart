@@ -130,4 +130,43 @@ void main() {
       expect(r.route!.distanceMeters, 450);
     });
   });
+
+  group('지도 값', () {
+    test('출발점이 있으면 출발점 · 목적지를 담고 서버 경로를 그대로 준다', () async {
+      directions.route = const WalkingRoute(
+        path: [GeoPoint(37.2465, 127.0802), destinationPoint],
+        distanceMeters: 450,
+        minutes: 6,
+      );
+
+      await vm.start();
+      location.emit(const LocationFix(point: GeoPoint(37.2450, 127.0801), accuracyMeters: 10));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vm.startPoint, engineering.point);
+      expect(vm.mapFocusPoints, [engineering.point, destinationPoint]);
+      expect(vm.mapRoute, directions.route!.path);
+      expect(vm.mapCurrentLocation, const GeoPoint(37.2450, 127.0801));
+    });
+
+    test('② 출발점이 없으면 목적지만 담고 경로 · 현재 위치는 비운다', () async {
+      location.permission = LocationPermissionStatus.denied;
+      final r = DirectionsViewModel(
+        directionsRepository: directions,
+        locationRepository: location,
+        destination: sampleCandidate(1, buildingLocation: destinationPoint),
+      );
+      addTearDown(r.dispose);
+
+      await r.start();
+      location.emit(const LocationFix(point: GeoPoint(37.2450, 127.0801), accuracyMeters: 10));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(r.lacksOrigin, isTrue);
+      expect(r.startPoint, isNull);
+      expect(r.mapFocusPoints, [destinationPoint]);
+      expect(r.mapRoute, isEmpty);
+      expect(r.mapCurrentLocation, isNull);
+    });
+  });
 }

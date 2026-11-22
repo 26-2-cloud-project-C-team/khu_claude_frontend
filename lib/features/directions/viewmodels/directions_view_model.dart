@@ -64,6 +64,24 @@ class DirectionsViewModel extends ChangeNotifier {
   /// US-06 ② 복구 · 출발점 없음. 경로를 부르지 않고 목적지 핀만 둔 지도에 내부 안내 시트를 올린다.
   bool get lacksOrigin => _start == null && !_resolvingOrigin;
 
+  // ── 지도(A-12 AppMap)에 넘길 값. 지도 위젯은 View가 그리고, 여기서는 좌표만 정한다. ──
+
+  /// 경로의 출발점. 아직 없으면(복구 중 · ②) null.
+  GeoPoint? get startPoint => _start;
+
+  /// 지도의 현재 위치 점(경희블루). ②에서는 위치 권한이 없으므로 그리지 않는다.
+  GeoPoint? get mapCurrentLocation => lacksOrigin ? null : _currentPosition;
+
+  /// 지도의 경로선. 서버가 준 `path` 그대로이며 ②에서는 경로를 부르지 않아 비어 있다.
+  List<GeoPoint> get mapRoute => lacksOrigin ? const [] : (_route?.path ?? const []);
+
+  /// 처음 보여줄 범위에 담을 점들. 출발점이 있으면 출발점과 목적지, 없으면(②) 목적지 하나다.
+  /// 점이 하나면 View는 그 점을 가운데로 옮긴다.
+  List<GeoPoint> get mapFocusPoints {
+    final start = _start;
+    return start == null ? [destination.buildingLocation] : [start, destination.buildingLocation];
+  }
+
   /// 목적 건물 [arrivalRadiusMeters] 안. 제목을 '곧 도착해요'로 바꾸고 버튼을 강조한다.
   bool get isApproaching {
     final here = _currentPosition;
