@@ -238,7 +238,7 @@ Future<void> _loadSdk(String appKey) {
 @JS('kakao.maps.load')
 external void _kakaoMapsLoad(JSFunction callback);
 
-@JS('kakao.maps.GeoPoint')
+@JS('kakao.maps.LatLng')
 extension type _KLatLng._(JSObject _) implements JSObject {
   external factory _KLatLng(double lat, double lng);
 }
