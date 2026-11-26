@@ -87,6 +87,16 @@ void main() {
       });
     }
 
+    // 후보 상세 · 길찾기는 보던 공간을 ?space=로 남기므로 새로고침하면 그 공간을 복구한다.
+    for (final path in [AppRoutes.candidates, AppRoutes.directions]) {
+      testWidgets('$path?space=7을 값 없이 열면 공간 7을 복구 상태로 연다', (tester) async {
+        final router = await pumpAt(tester, '$path?space=7');
+
+        expect(router.state.uri.path, AppRoutes.restoreSpace('7'));
+        expect(find.text('검색 조건이 사라져서 공간 정보만 보여 드려요'), findsOneWidget);
+      });
+    }
+
     testWidgets('/spaces/{spaceId}는 공간 하나를 복구 상태(US-04 ③)로 연다', (tester) async {
       await pumpAt(tester, AppRoutes.restoreSpace('7'));
 

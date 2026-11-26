@@ -178,6 +178,35 @@ void main() {
     expect(drop.condition.sortKeys, {SortKey.distance});
   });
 
+  test('인원 감소 대안은 query의 인원을 담는다(한 번에 여러 명이 줄 수 있다)', () async {
+    final adapter = FakeHttpAdapter(
+      (_) => jsonResponse(200, {
+        'searchedAt': '2026-11-01T14:20:00+09:00',
+        'total': 0,
+        'candidates': <Object>[],
+        'alternatives': [
+          {
+            'type': 'DECREASE_HEADCOUNT',
+            'count': 1,
+            'query': {
+              'origin': 'building:${engineering.id}',
+              'purpose': 'SOLO',
+              'headcount': 8,
+              'require': <Object>[],
+              'sort': ['NEAR'],
+            },
+          },
+        ],
+      }),
+    );
+
+    final result = await repoWith(adapter).search(condition);
+
+    expect(result.alternatives.single.alternative, const DecreaseHeadcount(8));
+    expect(result.alternatives.single.alternative.label, '인원 8명으로 줄이기');
+    expect(result.alternatives.single.condition.headcount, 8);
+  });
+
   test('대안 재검색은 처음 검색의 searchedAt을 KST로 보낸다', () async {
     final adapter = FakeHttpAdapter(
       (_) => jsonResponse(200, {

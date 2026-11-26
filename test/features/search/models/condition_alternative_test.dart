@@ -9,12 +9,17 @@ void main() {
     expect(const ClearRequirements().label, '필요 조건 모두 지우기');
   });
 
+  test('인원 감소 대안은 서버가 고른 인원을 그대로 보여 준다', () {
+    expect(const DecreaseHeadcount(8).label, '인원 8명으로 줄이기');
+  });
+
   test('같은 종류의 대안은 같다', () {
     expect(const RemoveRequirement(Requirement.quiet), const RemoveRequirement(Requirement.quiet));
     expect(
       const RemoveRequirement(Requirement.quiet) == const RemoveRequirement(Requirement.charging),
       isFalse,
     );
-    expect(const DecreaseHeadcount(), const DecreaseHeadcount());
+    expect(const DecreaseHeadcount(8), const DecreaseHeadcount(8));
+    expect(const DecreaseHeadcount(8) == const DecreaseHeadcount(9), isFalse);
   });
 }
