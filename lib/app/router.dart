@@ -111,7 +111,12 @@ GoRouter createRouter({
                 path: ':spaceId',
                 builder: (context, state) => AdminSpaceDetailPage(
                   spaceId: state.pathParameters['spaceId']!,
-                  onBack: () => context.pop(),
+                  onBack: () => context.canPop()
+                      ? context.pop()
+                      : context.go(AppRoutes.adminSpaces),
+                  initialMessage: state.uri.queryParameters['toast'] == 'created'
+                      ? '공간을 등록했어요'
+                      : null,
                 ),
                 routes: [
                   GoRoute(

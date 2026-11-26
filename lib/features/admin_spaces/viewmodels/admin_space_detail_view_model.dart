@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/errors/app_exception.dart';
 import '../data/admin_space_repository.dart';
 import '../models/admin_space_detail.dart';
 import '../models/admin_space.dart';
+
+/// 재조사 처리 결과. [conflict]는 다른 관리자가 먼저 처리해 서버가 409를 돌려준 경우다.
+enum ReinspectionResolveResult { success, conflict, failure }
 
 class AdminSpaceDetailViewModel extends ChangeNotifier {
   AdminSpaceDetailViewModel({
@@ -67,17 +71,19 @@ class AdminSpaceDetailViewModel extends ChangeNotifier {
   }
 
   // 현재 공간의 미처리 재조사 요청 전체 처리
-  Future<bool> resolveAllReinspections({
+  Future<ReinspectionResolveResult> resolveAllReinspections({
     String result = '',
     bool makePrivate = false,
   }) async {
-    if (_isUpdating || _detail == null) return false;
+    if (_isUpdating || _detail == null) {
+      return ReinspectionResolveResult.failure;
+    }
 
     final hasPendingRequests = _detail!.reinspectionRequests.any(
       (request) => !request.isResolved,
     );
 
-    if (!hasPendingRequests) return true;
+    if (!hasPendingRequests) return ReinspectionResolveResult.success;
 
     _isUpdating = true;
     _errorMessage = null;
@@ -92,16 +98,19 @@ class AdminSpaceDetailViewModel extends ChangeNotifier {
 
       await _refreshDetail();
 
-      return true;
-    } catch (_) {
+      return ReinspectionResolveResult.success;
+    } catch (error) {
       try {
         await _refreshDetail();
       } catch (_) {
         // 최신 정보를 불러오지 못하면 기존 상세 정보 유지
       }
 
+      if (error is AppException && error.statusCode == 409) {
+        return ReinspectionResolveResult.conflict;
+      }
       _errorMessage = '재조사 요청 처리에 실패했습니다.';
-      return false;
+      return ReinspectionResolveResult.failure;
     } finally {
       _isUpdating = false;
       notifyListeners();

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/models/building.dart';
 import '../data/admin_space_repository.dart';
 import '../models/admin_space_detail.dart';
 
@@ -20,11 +21,13 @@ class AdminSpaceEditViewModel extends ChangeNotifier {
   final String _spaceId;
 
   AdminSpaceDetail? _detail;
+  List<Building> _buildings = const [];
   bool _isLoading = false;
   bool _isSaving = false;
   String? _errorMessage;
 
   AdminSpaceDetail? get detail => _detail;
+  List<Building> get buildings => _buildings;
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
   String? get errorMessage => _errorMessage;
@@ -43,6 +46,18 @@ class AdminSpaceEditViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// 위치 섹션의 건물 시트에 쓸 목록. 이미 받았으면 다시 부르지 않는다.
+  Future<List<Building>> loadBuildings() async {
+    if (_buildings.isNotEmpty) return _buildings;
+    try {
+      _buildings = await _repository.fetchBuildings();
+    } catch (_) {
+      _buildings = const [];
+    }
+    notifyListeners();
+    return _buildings;
   }
 
   Future<bool> save(

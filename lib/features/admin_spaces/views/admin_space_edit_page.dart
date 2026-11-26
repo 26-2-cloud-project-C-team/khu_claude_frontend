@@ -1,7 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/models/building.dart';
 import '../../../core/models/noise_level.dart';
 import '../../../core/models/purpose.dart';
 import '../../../core/models/space_photo.dart';
@@ -9,15 +13,19 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/selected_space_photo_image.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_bottom_sheet.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_stepper.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../../../core/widgets/building_list.dart';
 import '../data/admin_space_repository.dart';
 import '../models/admin_space_detail.dart';
 import '../models/admin_space_edit_section.dart';
 import '../models/selected_space_photo.dart';
+import '../models/space_limits.dart';
+import '../models/space_section_edit.dart';
 import '../viewmodels/admin_space_edit_view_model.dart';
-import '../utils/space_photo_converter.dart';
+import '../utils/photo_file_type.dart';
 
 class AdminSpaceEditPage extends StatelessWidget {
   const AdminSpaceEditPage({
@@ -133,10 +141,15 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
   final _picker = ImagePicker();
   late final TextEditingController _nameController;
   late final TextEditingController _locationController;
-  late final TextEditingController _purposeController;
   late final TextEditingController _goodPointsController;
   late final TextEditingController _badPointsController;
   late final TextEditingController _memoController;
+
+  late Set<Purpose> _purposes;
+  String? _buildingId;
+  String? _buildingName;
+  int? _floor;
+  FloorRange _floorRange = const FloorRange(min: -3, max: 15);
 
   late final List<SelectedSpacePhoto?> _requiredPhotos;
   late final List<SelectedSpacePhoto> _extraPhotos;
@@ -162,7 +175,10 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
     _locationController = TextEditingController(
       text: detail.space.locationDetail ?? detail.space.location,
     );
-    _purposeController = TextEditingController(text: detail.purpose);
+    _purposes = purposesOf(detail);
+    _buildingId = detail.space.buildingId;
+    _buildingName = detail.space.buildingName;
+    _floor = detail.space.floor;
     _goodPointsController = TextEditingController(text: detail.goodPoints);
     _badPointsController = TextEditingController(text: detail.badPoints);
     _memoController = TextEditingController(text: detail.memo);
@@ -206,7 +222,6 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
   void dispose() {
     _nameController.dispose();
     _locationController.dispose();
-    _purposeController.dispose();
     _goodPointsController.dispose();
     _badPointsController.dispose();
     _memoController.dispose();
@@ -243,7 +258,7 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
               width: double.infinity,
               child: AppButton(
                 label: widget.isSaving ? '저장 중...' : '고친 내용 반영하기',
-                onPressed: widget.isSaving || !_isValid ? null : _save,
+                onPressed: widget.isSaving || !_canSave ? null : _save,
               ),
             ),
           ),
@@ -252,35 +267,10 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
     );
   }
 
-  bool get _isValid {
-    switch (widget.section) {
-      case AdminSpaceEditSection.location:
-        return _nameController.text.trim().isNotEmpty &&
-            _locationController.text.trim().isNotEmpty &&
-            _purposeController.text.trim().isNotEmpty;
-      case AdminSpaceEditSection.photos:
-        return _requiredPhotos.every(
-              (photo) =>
-                  photo != null && (photo.isUploaded || photo.hasLocalBytes),
-            ) &&
-            _requiredPhotos.length + _extraPhotos.length <= 10;
-      case AdminSpaceEditSection.rules:
-        return _is24Hours || _endMinute > _startMinute;
-      case AdminSpaceEditSection.facilities:
-        return _tableCount >= 1 &&
-            _tableCount <= 40 &&
-            _maxPeoplePerTable >= 1 &&
-            _maxPeoplePerTable <= 8 &&
-            _chargingTableCount >= 0 &&
-            _chargingTableCount <= _tableCount;
-      case AdminSpaceEditSection.fieldSurvey:
-        return _goodPointsController.text.trim().isNotEmpty &&
-            _goodPointsController.text.length <= 40 &&
-            _badPointsController.text.trim().isNotEmpty &&
-            _badPointsController.text.length <= 40 &&
-            _memoController.text.trim().isNotEmpty &&
-            _memoController.text.length <= 100;
-    }
+  bool get _canSave {
+    final edited = _editedDetail();
+    return isSectionValid(widget.section, edited) &&
+        hasSectionChanged(widget.section, widget.detail, edited);
   }
 
   Widget _buildSectionFields() {
@@ -292,32 +282,34 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
             _FieldLabel('공간 이름'),
             AppTextField(controller: _nameController, maxLength: 40),
             const SizedBox(height: 20),
-            _FieldLabel('상세 위치'),
-            AppTextField(controller: _locationController, maxLength: 40),
-            const SizedBox(height: 6),
-            Text(
-              '${widget.detail.space.buildingName ?? ''} · ${widget.detail.space.floor == null ? '' : (widget.detail.space.floor! < 0 ? '지하 ${widget.detail.space.floor!.abs()}층' : '${widget.detail.space.floor}층')}',
-              style: AppTypography.caption,
+            _FieldLabel('건물'),
+            _SelectField(
+              value: _buildingName ?? '선택',
+              isSelected: _buildingId != null,
+              onTap: _selectBuilding,
             ),
             const SizedBox(height: 20),
-            _FieldLabel('어울리는 이용 목적'),
-            DropdownButtonFormField<String>(
-              initialValue: Purpose.values.any(
-                (purpose) => purpose.label == _purposeController.text,
-              )
-                  ? _purposeController.text
-                  : null,
-              decoration: _inputDecoration('이용 목적 선택'),
-              items: [
-                for (final purpose in Purpose.values)
-                  DropdownMenuItem(
-                    value: purpose.label,
-                    child: Text(purpose.label),
-                  ),
-              ],
-              onChanged: (value) =>
-                  setState(() => _purposeController.text = value ?? ''),
+            _FieldLabel('층'),
+            _SelectField(
+              value: _floor == null ? '선택' : _floorLabel(_floor!),
+              isSelected: _floor != null,
+              onTap: _buildingId == null ? null : _selectFloor,
             ),
+            const SizedBox(height: 20),
+            _FieldLabel('상세 위치'),
+            AppTextField(controller: _locationController, maxLength: 40),
+            const SizedBox(height: 20),
+            _FieldLabel('어울리는 이용 목적 · 1개 이상'),
+            for (final purpose in Purpose.values) ...[
+              _PurposeOption(
+                label: purpose.label,
+                selected: _purposes.contains(purpose),
+                onTap: () => setState(() {
+                  if (!_purposes.remove(purpose)) _purposes.add(purpose);
+                }),
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
         );
       case AdminSpaceEditSection.photos:
@@ -470,21 +462,26 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
               label: '테이블',
               value: _tableCount,
               min: 1,
-              max: 40,
+              max: math.max(SpaceLimits.maxTableCount, widget.detail.tableCount),
               unit: '개',
-              onChanged: (value) => setState(() {
-                _tableCount = value;
-                if (_chargingTableCount > value) {
-                  _chargingTableCount = value;
-                }
-              }),
+              onChanged: _setTableCount,
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _enterTableCount,
+                child: const Text('테이블 수 직접 입력'),
+              ),
             ),
             const SizedBox(height: 12),
             AppStepperRow(
               label: '한 테이블 최대 인원',
               value: _maxPeoplePerTable,
               min: 1,
-              max: 8,
+              max: math.max(
+                SpaceLimits.maxSeatsPerTable,
+                widget.detail.maxPeoplePerTable,
+              ),
               unit: '명',
               onChanged: (value) => setState(() => _maxPeoplePerTable = value),
             ),
@@ -565,21 +562,12 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
   
   Future<SelectedSpacePhoto> _convertPhoto(XFile file) async {
     final sourceBytes = await file.readAsBytes();
-
-    if (sourceBytes.lengthInBytes > 10 * 1024 * 1024) {
-      throw const FormatException('원본 사진은 10MB 이하여야 합니다.');
-    }
-
-    final jpegBytes = await SpacePhotoConverter.toJpeg(sourceBytes);
-
-    if (jpegBytes.lengthInBytes > 10 * 1024 * 1024) {
-      throw const FormatException('변환된 사진은 10MB 이하여야 합니다.');
-    }
+    final type = PhotoFileType.validate(sourceBytes);
 
     return SelectedSpacePhoto(
-      name: 'photo.jpg',
-      mimeType: 'image/jpeg',
-      bytes: jpegBytes,
+      name: 'photo.${type.extension}',
+      mimeType: type.mimeType,
+      bytes: sourceBytes,
     );
   }
 
@@ -677,31 +665,103 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
   }
 
 
-  void _save() {
+  void _setTableCount(int value) => setState(() {
+    _tableCount = value;
+    if (_chargingTableCount > value) _chargingTableCount = value;
+  });
+
+  Future<void> _enterTableCount() async {
+    final max = math.max(SpaceLimits.maxTableCount, widget.detail.tableCount);
+    final value = await showDialog<int>(
+      context: context,
+      builder: (context) => _NumberInputDialog(
+        title: '테이블 수를 입력해주세요',
+        initial: _tableCount,
+        min: 1,
+        max: max,
+      ),
+    );
+    if (!mounted || value == null) return;
+    _setTableCount(value);
+  }
+
+  Future<void> _selectBuilding() async {
+    final buildings = await context.read<AdminSpaceEditViewModel>().loadBuildings();
+    if (!mounted) return;
+    if (buildings.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('건물 목록을 불러오지 못했어요.')),
+      );
+      return;
+    }
+    final current = buildings.where((b) => b.id == _buildingId).firstOrNull;
+    final picked = await showBuildingSelectSheet(
+      context: context,
+      title: '건물을 선택해주세요',
+      buildings: buildings,
+      selected: current,
+    );
+    if (!mounted || picked == null) return;
+    setState(() {
+      if (picked.id != _buildingId) _floor = null;
+      _buildingId = picked.id;
+      _buildingName = picked.name;
+      _floorRange = picked.floorRange;
+    });
+  }
+
+  Future<void> _selectFloor() async {
+    final buildings = context.read<AdminSpaceEditViewModel>().buildings;
+    final building = buildings.where((b) => b.id == _buildingId).firstOrNull;
+    final range = building?.floorRange ?? _floorRange;
+    final picked = await showAppSelectSheet<int>(
+      context: context,
+      title: '층을 선택해주세요',
+      subtitle: _buildingName,
+      options: range.floors,
+      selected: _floor,
+      labelOf: _floorLabel,
+      expanded: true,
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _floor = picked);
+  }
+
+  AdminSpaceDetail _editedDetail() {
     final current = widget.detail;
-    var updated = current;
 
     switch (widget.section) {
       case AdminSpaceEditSection.location:
-        final purpose = _purposeController.text.trim();
-        updated = current.copyWith(
+        final purposes = Purpose.values.where(_purposes.contains).toList();
+        final floor = _floor;
+        final floorText = floor == null ? '' : _floorLabel(floor);
+        final detailText = _locationController.text.trim();
+        return current.copyWith(
           space: current.space.copyWith(
             name: _nameController.text.trim(),
-            locationDetail: _locationController.text.trim(),
+            locationDetail: detailText,
+            buildingId: _buildingId,
+            buildingName: _buildingName,
+            floor: floor,
+            purposes: [for (final p in purposes) p.code],
+            location: [
+              _buildingName ?? '',
+              floorText,
+              detailText,
+            ].where((part) => part.isNotEmpty).join(' · '),
           ),
-          purpose: purpose,
+          purpose: purposes.map((p) => p.label).join(', '),
         );
-        break;
       case AdminSpaceEditSection.photos:
-        updated = current.copyWith(
+        return current.copyWith(
           photos: [
-            for (final photo in _requiredPhotos) photo!,
+            for (final photo in _requiredPhotos)
+              ?photo,
             ..._extraPhotos,
           ],
         );
-        break;
       case AdminSpaceEditSection.rules:
-        updated = current.copyWith(
+        return current.copyWith(
           isCafe: _isCafe,
           canTalk: _canTalk,
           is24Hours: _is24Hours,
@@ -709,25 +769,185 @@ class _AdminSpaceEditFormState extends State<_AdminSpaceEditForm> {
           endMinute: _is24Hours ? 1440 : _endMinute,
           noiseLevel: _noiseLevel,
         );
-        break;
       case AdminSpaceEditSection.facilities:
-        updated = current.copyWith(
+        return current.copyWith(
           tableCount: _tableCount,
           maxPeoplePerTable: _maxPeoplePerTable,
           chargingTableCount: _chargingTableCount,
           hasFreeWifi: _hasFreeWifi,
         );
-        break;
       case AdminSpaceEditSection.fieldSurvey:
-        updated = current.copyWith(
+        return current.copyWith(
           goodPoints: _goodPointsController.text.trim(),
           badPoints: _badPointsController.text.trim(),
           memo: _memoController.text.trim(),
         );
-        break;
     }
+  }
 
-    widget.onSave(updated);
+  void _save() => widget.onSave(_editedDetail());
+}
+
+String _floorLabel(int floor) => floor < 0 ? '지하 ${floor.abs()}층' : '$floor층';
+
+class _SelectField extends StatelessWidget {
+  const _SelectField({
+    required this.value,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String value;
+  final bool isSelected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Material(
+      color: enabled ? AppColors.gray50 : AppColors.gray100,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: AppTypography.body1.copyWith(
+                    color: isSelected && enabled
+                        ? AppColors.gray900
+                        : AppColors.gray400,
+                  ),
+                ),
+              ),
+              const Icon(Icons.keyboard_arrow_down, color: AppColors.gray500),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PurposeOption extends StatelessWidget {
+  const _PurposeOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      checked: selected,
+      child: Material(
+        color: selected ? AppColors.primaryTint : AppColors.gray50,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? AppColors.primary : AppColors.gray200,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: AppTypography.body1.copyWith(
+                      color: selected ? AppColors.primary : AppColors.gray900,
+                    ),
+                  ),
+                ),
+                if (selected)
+                  const Icon(Icons.check, color: AppColors.primary, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NumberInputDialog extends StatefulWidget {
+  const _NumberInputDialog({
+    required this.title,
+    required this.initial,
+    required this.min,
+    required this.max,
+  });
+
+  final String title;
+  final int initial;
+  final int min;
+  final int max;
+
+  @override
+  State<_NumberInputDialog> createState() => _NumberInputDialogState();
+}
+
+class _NumberInputDialogState extends State<_NumberInputDialog> {
+  late final _controller = TextEditingController(text: '${widget.initial}');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int? get _value {
+    final value = int.tryParse(_controller.text);
+    if (value == null || value < widget.min || value > widget.max) return null;
+    return value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title, style: AppTypography.h3),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(
+          helperText: '${widget.min}~${widget.max}',
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          onPressed: _value == null
+              ? null
+              : () => Navigator.of(context).pop(_value),
+          child: const Text('확인'),
+        ),
+      ],
+    );
   }
 }
 
@@ -878,23 +1098,3 @@ class _PhotoEditTile extends StatelessWidget {
     );
   }
 }
-
-InputDecoration _inputDecoration(String hint) => InputDecoration(
-  hintText: hint,
-  hintStyle: AppTypography.body2.copyWith(color: AppColors.gray400),
-  filled: true,
-  fillColor: AppColors.gray50,
-  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
-    borderSide: const BorderSide(color: AppColors.gray200),
-  ),
-  enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
-    borderSide: const BorderSide(color: AppColors.gray200),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
-    borderSide: const BorderSide(color: AppColors.primary),
-  ),
-);
