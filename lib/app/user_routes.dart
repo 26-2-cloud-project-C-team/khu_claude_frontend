@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -21,6 +22,7 @@ import '../features/feedback/views/review_page.dart';
 import '../features/search/data/search_repository.dart';
 import '../features/search/models/candidate.dart';
 import '../features/search/models/origin.dart';
+import '../features/search/models/search_result.dart';
 import '../features/search/viewmodels/candidate_view_model.dart';
 import '../features/search/viewmodels/no_result_view_model.dart';
 import '../features/search/viewmodels/search_flow_view_model.dart';
@@ -58,13 +60,14 @@ class DirectionsArgs {
 /// 사용자 화면(US-00~08) 경로. `router.dart`의 사용자 `ShellRoute` 안에 들어간다.
 ///
 /// 검색 조건과 결과는 [SearchFlowViewModel]이 들고 있어 URL에 담지 않는다. 새로고침으로 값이 사라진
-/// 화면은 US-00으로 보내고, 공간 하나는 `/spaces/{spaceId}`(US-04 ③)로 복구한다.
+/// 화면은 US-00으로 보내고, 공간 하나는 `/spaces/{spaceId}`(US-04 ③)로 복구한다. 후보 상세와 길찾기는
+/// 보고 있는 공간을 `?space=`로 남겨 새로고침해도 그 공간으로 복구한다.
 List<RouteBase> userRoutes(SearchFlowHolder holder) {
   // 목적 없이 들어오면(새로고침) 처음부터 시작한다.
   String? needsCondition(BuildContext _, GoRouterState _) =>
       holder.value?.condition.purpose == null ? AppRoutes.start : null;
   String? needsArgs(BuildContext _, GoRouterState state) =>
-      state.extra is DirectionsArgs ? null : AppRoutes.start;
+      state.extra is DirectionsArgs ? null : _restoreOrStart(state);
 
   void restart(BuildContext context) {
     holder.value?.reset();
@@ -92,8 +95,7 @@ List<RouteBase> userRoutes(SearchFlowHolder holder) {
             queryParameters: {'unavailable': '$locationUnavailable'},
           ).toString(),
         ),
-        onSearched: (result) =>
-            context.go(result.isEmpty ? AppRoutes.noResult : AppRoutes.candidates),
+        onSearched: (result) => context.go(_resultLocation(result)),
       ),
     ),
     GoRoute(
@@ -113,29 +115,33 @@ List<RouteBase> userRoutes(SearchFlowHolder holder) {
     ),
     GoRoute(
       path: AppRoutes.candidates,
-      redirect: (_, _) {
+      redirect: (_, state) {
         final result = holder.value?.lastResult;
-        return result == null || result.isEmpty ? AppRoutes.start : null;
+        return result == null || result.isEmpty ? _restoreOrStart(state) : null;
       },
-      builder: (context, _) {
-        final result = holder.flow.lastResult!;
+      builder: (context, state) {
+        final result = holder.value?.lastResult;
+        if (result == null || result.isEmpty) return _Leave(to: _restoreOrStart(state));
         return ViewModelScope(
           // 결과가 바뀌면(조건 시트에서 다시 검색) 1위부터 새로 보여준다.
           key: ObjectKey(result),
           create: (_) => CandidateViewModel(result: result),
-          builder: (context, vm) => CandidatePage(
+          builder: (context, vm) => _CandidateLocationSync(
             viewModel: vm,
-            condition: result.condition,
-            onClose: () => restart(context),
-            onEditStep: (step) {
-              holder.flow.editFromSheet(step);
-              context.push(AppRoutes.search);
-            },
-            onGo: (space) => context.push(
-              AppRoutes.directions,
-              extra: DirectionsArgs(space: space, origin: result.condition.origin),
+            child: CandidatePage(
+              viewModel: vm,
+              condition: result.condition,
+              onClose: () => restart(context),
+              onEditStep: (step) {
+                holder.flow.editFromSheet(step);
+                context.push(AppRoutes.search);
+              },
+              onGo: (space) => context.push(
+                _withSpace(AppRoutes.directions, space.spaceId),
+                extra: DirectionsArgs(space: space, origin: result.condition.origin),
+              ),
+              onOpenPhoto: (space, index) => openPhotos(context, space, index),
             ),
-            onOpenPhoto: (space, index) => openPhotos(context, space, index),
           ),
         );
       },
@@ -143,20 +149,22 @@ List<RouteBase> userRoutes(SearchFlowHolder holder) {
     GoRoute(
       path: AppRoutes.noResult,
       redirect: (_, _) => holder.value?.lastResult == null ? AppRoutes.start : null,
-      builder: (context, _) => ViewModelScope(
-        create: (context) => NoResultViewModel(
-          repository: context.read<SearchRepository>(),
-          result: holder.flow.lastResult!,
-        ),
-        builder: (context, vm) => NoResultPage(
-          viewModel: vm,
-          onAdopt: (result) {
-            holder.flow.adopt(result);
-            context.go(result.isEmpty ? AppRoutes.noResult : AppRoutes.candidates);
-          },
-          onRestart: () => restart(context),
-        ),
-      ),
+      builder: (context, _) {
+        final result = holder.value?.lastResult;
+        if (result == null) return const _Leave(to: AppRoutes.start);
+        return ViewModelScope(
+          create: (context) =>
+              NoResultViewModel(repository: context.read<SearchRepository>(), result: result),
+          builder: (context, vm) => NoResultPage(
+            viewModel: vm,
+            onAdopt: (result) {
+              holder.flow.adopt(result);
+              context.go(_resultLocation(result));
+            },
+            onRestart: () => restart(context),
+          ),
+        );
+      },
     ),
     GoRoute(
       path: '${AppRoutes.restore}/:spaceId',
@@ -170,7 +178,10 @@ List<RouteBase> userRoutes(SearchFlowHolder holder) {
           viewModel: vm,
           onClose: () => restart(context),
           // 출발점은 저장하지 않으므로 US-06이 현재 위치 → US-03 순으로 다시 구한다.
-          onGo: (space) => context.push(AppRoutes.directions, extra: DirectionsArgs(space: space)),
+          onGo: (space) => context.push(
+            _withSpace(AppRoutes.directions, space.spaceId),
+            extra: DirectionsArgs(space: space),
+          ),
           onUnavailable: () {
             showAppToast(context, spaceUnavailableMessage);
             restart(context);
@@ -183,7 +194,9 @@ List<RouteBase> userRoutes(SearchFlowHolder holder) {
       path: AppRoutes.directions,
       redirect: needsArgs,
       builder: (context, state) {
-        final args = state.extra! as DirectionsArgs;
+        // 브라우저 뒤로가기로 기록이 복원되면 redirect 없이 extra만 비어 들어올 수 있다.
+        final args = state.extra;
+        if (args is! DirectionsArgs) return _Leave(to: _restoreOrStart(state));
         return ViewModelScope(
           create: (context) => DirectionsViewModel(
             directionsRepository: context.read<DirectionsRepository>(),
@@ -206,7 +219,8 @@ List<RouteBase> userRoutes(SearchFlowHolder holder) {
       redirect: needsArgs,
       // 닫으면 입력값을 버리므로 열 때마다 새로 만든다(US-07 Check Point).
       pageBuilder: (context, state) {
-        final args = state.extra! as DirectionsArgs;
+        final args = state.extra;
+        if (args is! DirectionsArgs) return MaterialPage(child: _Leave(onLeave: restart));
         return MaterialPage(
           fullscreenDialog: true,
           child: ViewModelScope(
@@ -228,7 +242,8 @@ List<RouteBase> userRoutes(SearchFlowHolder holder) {
       path: AppRoutes.reinspection,
       redirect: needsArgs,
       pageBuilder: (context, state) {
-        final args = state.extra! as DirectionsArgs;
+        final args = state.extra;
+        if (args is! DirectionsArgs) return MaterialPage(child: _Leave(onLeave: restart));
         return MaterialPage(
           fullscreenDialog: true,
           child: ViewModelScope(
@@ -286,6 +301,93 @@ class _ViewModelScopeState<T extends ChangeNotifier> extends State<ViewModelScop
 
 String _done(DoneKind kind) =>
     Uri(path: AppRoutes.done, queryParameters: {'kind': kind.name}).toString();
+
+String _withSpace(String path, String spaceId) =>
+    Uri(path: path, queryParameters: {'space': spaceId}).toString();
+
+String _resultLocation(SearchResult result) => result.isEmpty
+    ? AppRoutes.noResult
+    : _withSpace(AppRoutes.candidates, result.candidates.first.spaceId);
+
+/// 검색 결과 없이 열린 후보 · 길찾기 주소. 보던 공간이 있으면 그 공간을 복구(US-04 ③)하고, 없으면 처음부터.
+String _restoreOrStart(GoRouterState state) => switch (state.uri.queryParameters['space']) {
+  final id? when id.isNotEmpty => AppRoutes.restoreSpace(id),
+  _ => AppRoutes.start,
+};
+
+/// 그릴 값이 없는 화면. 다음 프레임에 [to]로 가거나 [onLeave]를 부른다.
+///
+/// 완료 화면(US-08)에서 브라우저 뒤로가기를 누르면 의견 모달 기록이 extra 없이 복원된다. 이때도 '확인'과
+/// 같이 조건을 초기화하고 US-00으로 보내, 같은 의견이 다시 접수되지 않게 한다.
+class _Leave extends StatefulWidget {
+  const _Leave({this.to, this.onLeave});
+
+  final String? to;
+  final void Function(BuildContext context)? onLeave;
+
+  @override
+  State<_Leave> createState() => _LeaveState();
+}
+
+class _LeaveState extends State<_Leave> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.onLeave case final leave?) {
+        leave(context);
+      } else {
+        context.go(widget.to ?? AppRoutes.start);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// 넘겨 보는 후보가 바뀔 때마다 주소의 `?space=`를 그 공간으로 바꿔, 새로고침하면 그 공간이 복구되게 한다.
+/// 화면 이동은 아니므로 기록을 쌓지 않고 현재 주소만 바꾼다.
+class _CandidateLocationSync extends StatefulWidget {
+  const _CandidateLocationSync({required this.viewModel, required this.child});
+
+  final CandidateViewModel viewModel;
+  final Widget child;
+
+  @override
+  State<_CandidateLocationSync> createState() => _CandidateLocationSyncState();
+}
+
+class _CandidateLocationSyncState extends State<_CandidateLocationSync> {
+  String? _reported;
+
+  @override
+  void initState() {
+    super.initState();
+    _reported = widget.viewModel.current?.spaceId;
+    widget.viewModel.addListener(_report);
+  }
+
+  @override
+  void dispose() {
+    widget.viewModel.removeListener(_report);
+    super.dispose();
+  }
+
+  void _report() {
+    final id = widget.viewModel.current?.spaceId;
+    if (id == null || id == _reported) return;
+    _reported = id;
+    SystemNavigator.routeInformationUpdated(
+      uri: Uri.parse(_withSpace(AppRoutes.candidates, id)),
+      replace: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
 
 /// 복구 중 위치를 못 구했을 때 띄우는 출발 건물 선택(US-03). 고르지 않고 닫으면 null.
 Future<Building?> _chooseOriginBuilding(BuildContext context) async {

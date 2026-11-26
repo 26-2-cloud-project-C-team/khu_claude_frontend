@@ -81,7 +81,7 @@ class SearchRepositoryImpl implements SearchRepository {
         final r? => RemoveRequirement(r),
         null => null,
       },
-      'DECREASE_HEADCOUNT' => const DecreaseHeadcount(),
+      'DECREASE_HEADCOUNT' => DecreaseHeadcount(query['headcount'] as int),
       'CLEAR_REQUIREMENTS' => const ClearRequirements(),
       _ => null,
     };
