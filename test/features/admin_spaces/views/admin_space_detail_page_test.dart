@@ -73,6 +73,23 @@ void main() {
       debugPrint('[AD-04 TEST 2] 테스트 통과');
     });
 
+    testWidgets('공개 상태를 끄면 토스트가 3초 동안만 보인다', (tester) async {
+      await pumpDetailPage(tester, spaceId: 'space-002');
+
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      // 공개 상태 저장(200ms) · 상세 재조회(300ms)
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(find.text('비공개로 바꿨어요'), findsOneWidget);
+      expect(find.text('되돌리기'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('비공개로 바꿨어요'), findsNothing);
+    });
+
     testWidgets('요청 처리 화면에서 결과를 공개하면 완료 상태로 돌아온다', (tester) async {
       debugPrint('[AD-04 TEST 3] 재조사 처리 테스트 시작');
 
