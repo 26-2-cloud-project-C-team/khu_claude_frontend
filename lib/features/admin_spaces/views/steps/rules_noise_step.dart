@@ -240,6 +240,8 @@ class _OperatingHoursSheetState extends State<_OperatingHoursSheet> {
   late int _backupEnd;
   late bool _is24Hours;
   bool _selectingEnd = false;
+  // 탭 전환 · 24시간 해제로 휠을 코드에서 옮기는 동안 들어오는 값 변경은 무시한다.
+  bool _syncingWheel = false;
 
   late FixedExtentScrollController _hourController;
   late FixedExtentScrollController _minuteController;
@@ -258,9 +260,11 @@ class _OperatingHoursSheetState extends State<_OperatingHoursSheet> {
     _backupStart = _start;
     _backupEnd = _end;
 
-    _hourController = FixedExtentScrollController(initialItem: _end ~/ 60);
+    _hourController = FixedExtentScrollController(
+      initialItem: _activeMinutes ~/ 60,
+    );
     _minuteController = FixedExtentScrollController(
-      initialItem: (_end % 60) ~/ 30,
+      initialItem: (_activeMinutes % 60) ~/ 30,
     );
   }
 
@@ -274,17 +278,25 @@ class _OperatingHoursSheetState extends State<_OperatingHoursSheet> {
   void _selectTime(bool selectingEnd) {
     setState(() {
       _selectingEnd = selectingEnd;
+      _syncingWheel = true;
     });
+    _syncWheelAfterFrame();
+  }
 
+  void _syncWheelAfterFrame() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _is24Hours) return;
-
-      _hourController.jumpToItem(_activeMinutes ~/ 60);
-      _minuteController.jumpToItem((_activeMinutes % 60) ~/ 30);
+      if (!mounted) return;
+      if (!_is24Hours) {
+        _hourController.jumpToItem(_activeMinutes ~/ 60);
+        _minuteController.jumpToItem((_activeMinutes % 60) ~/ 30);
+      }
+      _syncingWheel = false;
     });
   }
 
   void _changeHour(int hour) {
+    if (_syncingWheel) return;
+
     final minute = hour == 24 && _selectingEnd ? 0 : _activeMinutes % 60;
 
     if (hour == 24 && _selectingEnd) {
@@ -303,6 +315,7 @@ class _OperatingHoursSheetState extends State<_OperatingHoursSheet> {
   }
 
   void _changeMinute(int index) {
+    if (_syncingWheel) return;
     final hour = _activeMinutes ~/ 60;
 
     if (_selectingEnd && hour == 24) return;
@@ -332,14 +345,9 @@ class _OperatingHoursSheetState extends State<_OperatingHoursSheet> {
         _start = _backupStart;
         _end = _backupEnd;
       }
+      _syncingWheel = true;
     });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _is24Hours) return;
-
-      _hourController.jumpToItem(_activeMinutes ~/ 60);
-      _minuteController.jumpToItem((_activeMinutes % 60) ~/ 30);
-    });
+    _syncWheelAfterFrame();
   }
 
   String _format(int minutes) {

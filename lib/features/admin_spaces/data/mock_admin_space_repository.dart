@@ -1,9 +1,11 @@
 import '../../../core/models/building.dart';
 import '../../../core/models/reinspection_category.dart';
+import '../../admin_auth/models/admin_user.dart';
 import '../models/admin_space.dart';
 import '../models/admin_space_activity.dart';
 import '../models/admin_space_detail.dart';
 import '../models/reinspection_request.dart';
+import '../models/selected_space_photo.dart';
 import 'admin_space_repository.dart';
 import 'mock_buildings.dart';
 
@@ -95,9 +97,25 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
     return _details[id];
   }
 
+  @override
+  Future<List<AdminUser>> fetchAdmins() async => const [
+    AdminUser(name: '관리자', email: 'admin@example.com'),
+  ];
+
+  @override
+  Future<SelectedSpacePhoto> uploadPhoto(SelectedSpacePhoto photo) async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return SelectedSpacePhoto(
+      name: photo.name,
+      mimeType: photo.mimeType,
+      bytes: photo.bytes,
+      id: 'photo-${DateTime.now().microsecondsSinceEpoch}',
+    );
+  }
+
   // 공간 등록
   @override
-  Future<void> addSpace(
+  Future<String> addSpace(
     AdminSpace space, {
     AdminSpaceDetail? detail,
     required String surveyorEmail,
@@ -106,6 +124,7 @@ class MockAdminSpaceRepository implements AdminSpaceRepository {
 
     _spaces.add(space);
     _details[space.id] = detail ?? _createDetail(space);
+    return space.id;
   }
 
   // 공개 상태 변경: 공개 토글은 작업 이력만 남기고 최근 수정일은 바꾸지 않는다.

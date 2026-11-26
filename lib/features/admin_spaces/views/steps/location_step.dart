@@ -187,7 +187,7 @@ class _LocationStepState extends State<LocationStep> {
 
         const SizedBox(height: AppSpacing.section),
 
-        const _FieldLabel('어울리는 이용 목적 · 1개 선택'),
+        const _FieldLabel('어울리는 이용 목적 · 1개 이상'),
 
         const SizedBox(height: 8),
 
@@ -198,8 +198,8 @@ class _LocationStepState extends State<LocationStep> {
             for (final purpose in Purpose.values)
               _PurposeChip(
                 purpose: purpose,
-                selected: viewModel.purpose == purpose,
-                onTap: () => viewModel.setPurpose(purpose),
+                selected: viewModel.purposes.contains(purpose),
+                onTap: () => viewModel.togglePurpose(purpose),
               ),
           ],
         ),
@@ -299,7 +299,9 @@ class _PurposeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    return Semantics(
+      checked: selected,
+      child: Material(
       color: selected ? AppColors.primary : AppColors.gray100,
       borderRadius: BorderRadius.circular(100),
       child: InkWell(
@@ -316,6 +318,7 @@ class _PurposeChip extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
