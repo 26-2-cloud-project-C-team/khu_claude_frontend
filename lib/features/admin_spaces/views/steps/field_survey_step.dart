@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/app_bottom_sheet.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../admin_auth/models/admin_user.dart';
 import '../../viewmodels/admin_space_form_view_model.dart';
 
 class FieldSurveyStep extends StatefulWidget {
@@ -37,9 +40,24 @@ class _FieldSurveyStepState extends State<FieldSurveyStep> {
     super.dispose();
   }
 
+  Future<void> _selectSurveyor() async {
+    final viewModel = context.read<AdminSpaceFormViewModel>();
+    final selected = await showAppSelectSheet<AdminUser>(
+      context: context,
+      title: '조사자를 선택해주세요',
+      options: viewModel.surveyorOptions,
+      selected: viewModel.surveyor,
+      labelOf: (admin) => admin.name,
+      captionOf: (admin) => viewModel.isCurrentAdmin(admin) ? '나' : null,
+    );
+    if (selected != null) viewModel.selectSurveyor(selected);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.read<AdminSpaceFormViewModel>();
+    final viewModel = context.watch<AdminSpaceFormViewModel>();
+    final photosPending = viewModel.isUploadingPhotos;
+    final photosMissing = !viewModel.hasRequiredPhotos;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,14 +105,73 @@ class _FieldSurveyStepState extends State<FieldSurveyStep> {
           ),
         ),
 
-        const SizedBox(height: 12),
-        Text(
-          '조사자 정보는 현재 로그인한 관리자 계정으로 자동 기록됩니다.',
-          style: AppTypography.caption,
+        const SizedBox(height: 24),
+
+        _InputSection(
+          title: '조사자',
+          description: '현장을 조사한 관리자',
+          child: _SurveyorField(
+            name: viewModel.surveyor?.name,
+            onTap: viewModel.surveyorOptions.isEmpty ? null : _selectSurveyor,
+          ),
         ),
+
+        if (photosMissing || photosPending) ...[
+          const SizedBox(height: 12),
+          Text(
+            photosMissing
+                ? '1단계에서 다시 골라야 할 사진이 있어요.'
+                : '사진을 올리는 중이에요. 끝나면 등록할 수 있어요.',
+            style: AppTypography.caption.copyWith(color: AppColors.gray700),
+          ),
+        ],
 
         const SizedBox(height: AppSpacing.section),
       ],
+    );
+  }
+}
+
+class _SurveyorField extends StatelessWidget {
+  const _SurveyorField({required this.name, required this.onTap});
+
+  final String? name;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.gray50,
+      borderRadius: BorderRadius.circular(AppRadius.control),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.control),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.control),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name ?? '선택',
+                  style: AppTypography.body2.copyWith(
+                    color: name == null ? AppColors.gray400 : AppColors.gray900,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                color: AppColors.gray500,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

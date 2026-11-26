@@ -3,6 +3,7 @@ import '../../../core/models/noise_level.dart';
 import '../../../core/models/purpose.dart';
 import '../../../core/models/reinspection_category.dart';
 import '../../../core/network/api_client.dart';
+import '../../admin_auth/models/admin_user.dart';
 import '../models/admin_space.dart';
 import '../models/admin_space_activity.dart';
 import '../models/admin_space_detail.dart';
@@ -24,6 +25,14 @@ class ApiAdminSpaceRepository implements AdminSpaceRepository {
     final items = _asList(response['buildings']);
     return [
       for (final item in items) Building.fromJson(_asMap(item)),
+    ];
+  }
+
+  @override
+  Future<List<AdminUser>> fetchAdmins() async {
+    final response = _asMap(await _apiClient.get('/api/admin/admins'));
+    return [
+      for (final item in _asList(response['admins'])) AdminUser.fromEnvelope(item),
     ];
   }
 
@@ -50,7 +59,30 @@ class ApiAdminSpaceRepository implements AdminSpaceRepository {
   }
 
   @override
-  Future<void> addSpace(
+  Future<SelectedSpacePhoto> uploadPhoto(SelectedSpacePhoto photo) async {
+    final bytes = photo.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      throw ArgumentError('업로드할 사진 데이터가 없습니다: ${photo.name}');
+    }
+    final uploaded = _asMap(
+      await _apiClient.postMultipart(
+        '/api/admin/photos',
+        bytes: bytes,
+        fileName: photo.name,
+        mimeType: photo.mimeType,
+      ),
+    );
+    return SelectedSpacePhoto(
+      name: photo.name,
+      mimeType: photo.mimeType,
+      bytes: bytes,
+      id: _requiredString(uploaded['id'], '사진 업로드 응답에 ID가 없습니다.'),
+      url: _nullableString(uploaded['url']),
+    );
+  }
+
+  @override
+  Future<String> addSpace(
     AdminSpace space, {
     AdminSpaceDetail? detail,
     required String surveyorEmail,
@@ -111,7 +143,10 @@ class ApiAdminSpaceRepository implements AdminSpaceRepository {
       'impressions': impressions,
     };
 
-    await _apiClient.post('/api/admin/spaces', body: request);
+    final created = _asMap(
+      await _apiClient.post('/api/admin/spaces', body: request),
+    );
+    return _requiredString(created['id'], '공간 등록 응답에 ID가 없습니다.');
   }
 
   @override
@@ -214,19 +249,8 @@ class ApiAdminSpaceRepository implements AdminSpaceRepository {
         continue;
       }
 
-      final bytes = photo.bytes;
-      if (bytes == null || bytes.isEmpty) {
-        throw ArgumentError('업로드할 사진 데이터가 없습니다: ${photo.name}');
-      }
-      final uploaded = _asMap(
-        await _apiClient.postMultipart(
-          '/api/admin/photos',
-          bytes: bytes,
-          fileName: photo.name,
-          mimeType: photo.mimeType,
-        ),
-      );
-      refs.add({'id': _requiredString(uploaded['id'], '사진 업로드 응답에 ID가 없습니다.')});
+      final uploaded = await uploadPhoto(photo);
+      refs.add({'id': uploaded.id!});
     }
     return refs;
   }

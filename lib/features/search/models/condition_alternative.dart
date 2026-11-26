@@ -2,7 +2,7 @@ import 'requirement.dart';
 import 'search_condition.dart';
 
 /// 결과가 0곳일 때 조건 하나만 바꾸는 대안(US-05). U2 `alternatives[].type`.
-/// 대안은 서버가 만든다(필요 조건 1개 제거 → 인원 1명 감소 → 필요 조건 전체 제거).
+/// 대안은 서버가 만든다(필요 조건 1개 제거 → 인원 감소 → 필요 조건 전체 제거).
 sealed class ConditionAlternative {
   const ConditionAlternative();
 
@@ -25,18 +25,21 @@ class RemoveRequirement extends ConditionAlternative {
   int get hashCode => requirement.hashCode;
 }
 
-/// `DECREASE_HEADCOUNT`
+/// `DECREASE_HEADCOUNT`. 서버는 후보가 있는 가장 큰 인원을 고르므로 한 번에 여러 명이 줄 수 있다.
 class DecreaseHeadcount extends ConditionAlternative {
-  const DecreaseHeadcount();
+  const DecreaseHeadcount(this.headcount);
+
+  /// 이 대안으로 다시 찾을 때의 인원.
+  final int headcount;
 
   @override
-  String get label => '인원 1명 줄이기';
+  String get label => '인원 $headcount명으로 줄이기';
 
   @override
-  bool operator ==(Object other) => other is DecreaseHeadcount;
+  bool operator ==(Object other) => other is DecreaseHeadcount && other.headcount == headcount;
 
   @override
-  int get hashCode => (DecreaseHeadcount).hashCode;
+  int get hashCode => headcount.hashCode;
 }
 
 /// `CLEAR_REQUIREMENTS`

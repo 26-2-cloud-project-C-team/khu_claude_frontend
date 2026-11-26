@@ -6,9 +6,10 @@ import '../../../../core/models/space_photo.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/selected_space_photo_image.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../models/form_photo.dart';
 import '../../models/selected_space_photo.dart';
+import '../../utils/photo_file_type.dart';
 import '../../viewmodels/admin_space_form_view_model.dart';
-import '../../utils/space_photo_converter.dart';
 
 class PhotoStep extends StatefulWidget {
   const PhotoStep({super.key});
@@ -22,120 +23,81 @@ class _PhotoStepState extends State<PhotoStep> {
 
   String? _errorMessage;
 
-  static const int _maxFileSize = 10 * 1024 * 1024;
-
-  
   Future<SelectedSpacePhoto> _convertPhoto(XFile file) async {
     final sourceBytes = await file.readAsBytes();
-
-    if (sourceBytes.lengthInBytes > _maxFileSize) {
-      throw const FormatException('원본 사진의 크기는 10MB 이하여야 해요.');
-    }
-
-    final jpegBytes = await SpacePhotoConverter.toJpeg(sourceBytes);
-
-    if (jpegBytes.lengthInBytes > _maxFileSize) {
-      throw const FormatException('변환된 사진의 크기는 10MB 이하여야 해요.');
-    }
+    final type = PhotoFileType.validate(sourceBytes);
 
     return SelectedSpacePhoto(
-      name: 'photo.jpg',
-      mimeType: 'image/jpeg',
-      bytes: jpegBytes,
+      name: 'photo.${type.extension}',
+      mimeType: type.mimeType,
+      bytes: sourceBytes,
     );
-  }
-
-  Future<SelectedSpacePhoto?> _selectPhoto() async {
-    final file = await _picker.pickImage(
-      source: ImageSource.gallery,
-    );
-
-    if (file == null) return null;
-
-    return _convertPhoto(file);
   }
 
   Future<void> _pickRequiredPhoto(PhotoTag tag) async {
     try {
-      final photo = await _selectPhoto();
+      final file = await _picker.pickImage(source: ImageSource.gallery);
+      if (file == null) return;
 
-      if (!mounted || photo == null) return;
+      final photo = await _convertPhoto(file);
+      if (!mounted) return;
 
       context.read<AdminSpaceFormViewModel>().setRequiredPhoto(tag, photo);
-
       setState(() => _errorMessage = null);
     } catch (error) {
       _showError(error);
     }
   }
 
-  
   Future<void> _pickExtraPhoto() async {
     final viewModel = context.read<AdminSpaceFormViewModel>();
-
-    final remaining = 10 - viewModel.photoCount;
+    final remaining = AdminSpaceFormViewModel.maxPhotos - viewModel.photoCount;
 
     if (remaining <= 0) {
-      setState(() {
-        _errorMessage = '사진은 최대 10장까지 선택할 수 있어요.';
-      });
+      setState(() => _errorMessage = '사진은 최대 10장까지 올릴 수 있어요.');
       return;
     }
 
     try {
-      final files = await _picker.pickMultiImage(
-        limit: remaining,
-      );
-
+      final files = await _picker.pickMultiImage(limit: remaining);
       if (!mounted || files.isEmpty) return;
 
-      var addedCount = 0;
       String? lastError;
-
       for (final file in files) {
         try {
           final photo = await _convertPhoto(file);
-
-          if (!viewModel.addExtraPhoto(photo)) {
-            break;
-          }
-
-          addedCount++;
+          if (!viewModel.addExtraPhoto(photo)) break;
         } catch (error) {
-          lastError = error is FormatException
-              ? error.message
-              : '사진을 변환하지 못했어요.';
+          lastError = _messageOf(error);
         }
       }
 
       if (!mounted) return;
-
-      setState(() {
-        _errorMessage = lastError;
-      });
-
-      if (addedCount > 0 && lastError == null) {
-        setState(() => _errorMessage = null);
-      }
+      setState(() => _errorMessage = lastError);
     } catch (error) {
       _showError(error);
     }
   }
 
+  static String _messageOf(Object error) => error is FormatException
+      ? error.message
+      : '사진을 불러오지 못했어요. 다시 시도해주세요.';
 
   void _showError(Object error) {
     if (!mounted) return;
-
-    setState(() {
-      _errorMessage = error is FormatException
-          ? error.message.toString()
-          : '사진을 불러오지 못했어요. 다시 시도해주세요.';
-    });
+    setState(() => _errorMessage = _messageOf(error));
   }
 
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<AdminSpaceFormViewModel>();
+    final errors = [
+      ?_errorMessage,
+      for (final tag in PhotoTag.values)
+        if (viewModel.requiredPhotoErrors[tag] case final message?)
+          '${tag.label}: $message',
+      ?viewModel.extraPhotoError,
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -152,7 +114,9 @@ class _PhotoStepState extends State<PhotoStep> {
         const SizedBox(height: 12),
 
         OutlinedButton.icon(
-          onPressed: viewModel.photoCount < 10 ? _pickExtraPhoto : null,
+          onPressed: viewModel.photoCount < AdminSpaceFormViewModel.maxPhotos
+              ? _pickExtraPhoto
+              : null,
           icon: const Icon(Icons.add, size: 18),
           label: const Text('사진 더 올리기'),
           style: OutlinedButton.styleFrom(
@@ -169,7 +133,7 @@ class _PhotoStepState extends State<PhotoStep> {
         const SizedBox(height: 8),
 
         Text(
-          '추가 사진 ${viewModel.extraPhotos.length}장 · 전체 ${viewModel.photoCount}/10장',
+          '추가 사진 ${viewModel.extraPhotos.length}장 · 전체 ${viewModel.photoCount}/${AdminSpaceFormViewModel.maxPhotos}장',
           style: AppTypography.caption,
           textAlign: TextAlign.right,
         ),
@@ -189,10 +153,10 @@ class _PhotoStepState extends State<PhotoStep> {
           ),
         ],
 
-        if (_errorMessage != null) ...[
+        for (final message in errors) ...[
           const SizedBox(height: 12),
           Text(
-            _errorMessage!,
+            message,
             style: AppTypography.body2.copyWith(color: AppColors.primary),
           ),
         ],
@@ -213,11 +177,12 @@ class _RequiredPhotoTile extends StatelessWidget {
   });
 
   final PhotoTag tag;
-  final SelectedSpacePhoto? photo;
+  final FormPhoto? photo;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final photo = this.photo;
     final selected = photo != null;
 
     return Material(
@@ -237,7 +202,7 @@ class _RequiredPhotoTile extends StatelessWidget {
                   width: 62,
                   height: 62,
                   child: selected
-                      ? SelectedSpacePhotoImage(photo: photo!, fit: BoxFit.cover)
+                      ? _UploadingPhoto(photo: photo)
                       : Container(
                           color: AppColors.gray200,
                           child: const Icon(
@@ -263,7 +228,12 @@ class _RequiredPhotoTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      selected ? photo!.name : '사진 선택하기',
+                      switch (photo?.status) {
+                        null => '사진 선택하기',
+                        PhotoUploadStatus.waiting => '올리기 대기 중',
+                        PhotoUploadStatus.uploading => '올리는 중',
+                        PhotoUploadStatus.uploaded => '올렸어요',
+                      },
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.caption,
@@ -273,8 +243,12 @@ class _RequiredPhotoTile extends StatelessWidget {
               ),
 
               Icon(
-                selected ? Icons.check_circle : Icons.add_circle_outline,
-                color: selected ? AppColors.positive : AppColors.gray400,
+                photo?.isUploaded == true
+                    ? Icons.check_circle
+                    : Icons.add_circle_outline,
+                color: photo?.isUploaded == true
+                    ? AppColors.positive
+                    : AppColors.gray400,
                 size: 22,
               ),
             ],
@@ -288,7 +262,7 @@ class _RequiredPhotoTile extends StatelessWidget {
 class _ExtraPhotoTile extends StatelessWidget {
   const _ExtraPhotoTile({required this.photo, required this.onRemove});
 
-  final SelectedSpacePhoto photo;
+  final FormPhoto photo;
   final VoidCallback onRemove;
 
   @override
@@ -302,7 +276,7 @@ class _ExtraPhotoTile extends StatelessWidget {
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: SelectedSpacePhotoImage(photo: photo, fit: BoxFit.cover),
+              child: _UploadingPhoto(photo: photo),
             ),
           ),
 
@@ -324,6 +298,37 @@ class _ExtraPhotoTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 올리기 전 · 올리는 중인 사진은 흐리게 두고 진행 표시를 얹는다.
+class _UploadingPhoto extends StatelessWidget {
+  const _UploadingPhoto({required this.photo});
+
+  final FormPhoto photo;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = SelectedSpacePhotoImage(photo: photo.photo, fit: BoxFit.cover);
+    if (photo.isUploaded) return image;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Opacity(opacity: 0.4, child: image),
+        Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.gray700,
+              value: photo.status == PhotoUploadStatus.waiting ? 0 : null,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

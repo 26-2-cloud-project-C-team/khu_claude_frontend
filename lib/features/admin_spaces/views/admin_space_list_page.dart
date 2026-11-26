@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/date_format.dart';
 import '../../admin_auth/viewmodels/admin_auth_view_model.dart';
 import '../models/admin_space.dart';
 import '../viewmodels/admin_space_list_view_model.dart';
@@ -92,7 +93,7 @@ class _AdminSpaceListPageState extends State<AdminSpaceListPage> {
                 _buildEmptyState()
               else
                 ...viewModel.visibleSpaces.map(
-                  (space) => _buildSpaceRow(space),
+                  (space) => _buildSpaceRow(space, viewModel.searchQuery),
                 ),
             ],
           ),
@@ -278,7 +279,7 @@ class _AdminSpaceListPageState extends State<AdminSpaceListPage> {
     );
   }
 
-  Widget _buildSpaceRow(AdminSpace space) {
+  Widget _buildSpaceRow(AdminSpace space, String query) {
     return InkWell(
       onTap: () => widget.onOpenSpace(space.id),
       child: Container(
@@ -293,27 +294,37 @@ class _AdminSpaceListPageState extends State<AdminSpaceListPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    space.name,
+                  Text.rich(
+                    TextSpan(
+                      children: highlightMatches(
+                        space.name,
+                        query,
+                        AppTypography.h3,
+                      ),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.h3,
                   ),
 
                   const SizedBox(height: 5),
 
-                  Text(
-                    space.location,
-                    style: AppTypography.body2.copyWith(
-                      color: AppColors.gray600,
+                  Text.rich(
+                    TextSpan(
+                      children: highlightMatches(
+                        space.location,
+                        query,
+                        AppTypography.body2.copyWith(color: AppColors.gray600),
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 5),
 
                   Text(
-                    '최근 수정 ${_formatDate(space.updatedAt)}',
-                    style: AppTypography.caption,
+                    '최근 수정 ${formatDate(space.updatedAt)}',
+                    style: AppTypography.caption.copyWith(
+                      color: space.isStale ? AppColors.primary : null,
+                    ),
                   ),
                 ],
               ),
@@ -462,9 +473,31 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-String _formatDate(DateTime date) {
-  final month = date.month.toString().padLeft(2, '0');
-  final day = date.day.toString().padLeft(2, '0');
+/// [text]에서 [query]와 대소문자 구분 없이 일치하는 부분만 Primary 색으로 나눈 조각.
+@visibleForTesting
+List<TextSpan> highlightMatches(String text, String query, TextStyle style) {
+  final keyword = query.trim().toLowerCase();
+  if (keyword.isEmpty) return [TextSpan(text: text, style: style)];
 
-  return '${date.year}.$month.$day';
+  final lower = text.toLowerCase();
+  final spans = <TextSpan>[];
+  var start = 0;
+  while (true) {
+    final index = lower.indexOf(keyword, start);
+    if (index < 0) break;
+    if (index > start) {
+      spans.add(TextSpan(text: text.substring(start, index), style: style));
+    }
+    spans.add(
+      TextSpan(
+        text: text.substring(index, index + keyword.length),
+        style: style.copyWith(color: AppColors.primary),
+      ),
+    );
+    start = index + keyword.length;
+  }
+  if (start < text.length) {
+    spans.add(TextSpan(text: text.substring(start), style: style));
+  }
+  return spans;
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +13,7 @@ import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../data/admin_space_repository.dart';
 import '../models/admin_space_activity.dart';
 import '../models/admin_space_detail.dart';
@@ -25,10 +28,14 @@ class AdminSpaceDetailPage extends StatelessWidget {
     super.key,
     required this.spaceId,
     required this.onBack,
+    this.initialMessage,
   });
 
   final String spaceId;
   final VoidCallback onBack;
+
+  /// 다른 화면에서 넘어오며 띄울 토스트 문구(AD-03 등록 직후 '공간을 등록했어요').
+  final String? initialMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -37,16 +44,25 @@ class AdminSpaceDetailPage extends StatelessWidget {
         repository: context.read<AdminSpaceRepository>(),
         spaceId: spaceId,
       )..load(),
-      child: _AdminSpaceDetailView(spaceId: spaceId, onBack: onBack),
+      child: _AdminSpaceDetailView(
+        spaceId: spaceId,
+        onBack: onBack,
+        initialMessage: initialMessage,
+      ),
     );
   }
 }
 
 class _AdminSpaceDetailView extends StatefulWidget {
-  const _AdminSpaceDetailView({required this.spaceId, required this.onBack});
+  const _AdminSpaceDetailView({
+    required this.spaceId,
+    required this.onBack,
+    this.initialMessage,
+  });
 
   final String spaceId;
   final VoidCallback onBack;
+  final String? initialMessage;
 
   @override
   State<_AdminSpaceDetailView> createState() => _AdminSpaceDetailViewState();
@@ -56,15 +72,24 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
   bool _isReviewingRequests = false;
   bool _makePrivateAfterResolve = false;
   late final TextEditingController _resolutionController;
+  _ToastData? _toast;
+  Timer? _toastTimer;
 
   @override
   void initState() {
     super.initState();
     _resolutionController = TextEditingController();
+    final message = widget.initialMessage;
+    if (message != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showToast(message);
+      });
+    }
   }
 
   @override
   void dispose() {
+    _toastTimer?.cancel();
     _resolutionController.dispose();
     super.dispose();
   }
@@ -78,9 +103,14 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
         elevation: 0,
         leading: IconButton(
           tooltip: '뒤로',
-          onPressed: _isReviewingRequests
-              ? () => setState(() => _isReviewingRequests = false)
-              : widget.onBack,
+          onPressed: () {
+            _hideToast();
+            if (_isReviewingRequests) {
+              setState(() => _isReviewingRequests = false);
+            } else {
+              widget.onBack();
+            }
+          },
           icon: const Icon(Icons.arrow_back),
         ),
         title: Text(
@@ -130,7 +160,8 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
               .where((request) => !request.isResolved)
               .toList(growable: false);
 
-          return Column(
+          final hasBottomAction = pendingRequests.isNotEmpty;
+          final content = Column(
             children: [
               Expanded(
                 child: _isReviewingRequests
@@ -141,6 +172,8 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
                         onMakePrivateChanged: (value) => setState(
                           () => _makePrivateAfterResolve = value,
                         ),
+                        onFixCategory: (category) =>
+                            _fixCategory(viewModel, category),
                       )
                     : _SpaceDetailBody(
                         detail: detail,
@@ -170,9 +203,60 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
                 ),
             ],
           );
+          final toast = _toast;
+          return Stack(
+            children: [
+              content,
+              if (toast != null)
+                Positioned(
+                  left: AppSpacing.screenHorizontal,
+                  right: AppSpacing.screenHorizontal,
+                  // 하단 CTA(56 + 위아래 16) 바로 위, CTA가 없으면 화면 아래 여백 위.
+                  bottom: hasBottomAction ? 88 + 8 : 34,
+                  child: AppToast(
+                    message: toast.message,
+                    actionLabel: toast.actionLabel,
+                    onAction: toast.onAction,
+                  ),
+                ),
+            ],
+          );
         },
       ),
     );
+  }
+
+  void _showToast(String message, {String? actionLabel, VoidCallback? onAction}) {
+    _toastTimer?.cancel();
+    setState(() => _toast = _ToastData(message, actionLabel, onAction));
+    _toastTimer = Timer(AppToast.duration, _hideToast);
+  }
+
+  void _hideToast() {
+    _toastTimer?.cancel();
+    _toastTimer = null;
+    if (mounted && _toast != null) setState(() => _toast = null);
+  }
+
+  Future<void> _fixCategory(
+    AdminSpaceDetailViewModel viewModel,
+    ReinspectionCategory category,
+  ) async {
+    switch (category) {
+      case ReinspectionCategory.etc:
+        _hideToast();
+        setState(() => _isReviewingRequests = false);
+      case ReinspectionCategory.closedMoved:
+        setState(() => _makePrivateAfterResolve = true);
+      case ReinspectionCategory.timeMood:
+        await _editSection(viewModel, AdminSpaceEditSection.rules);
+      case ReinspectionCategory.tableFacility:
+        await _editSection(viewModel, AdminSpaceEditSection.facilities);
+      case ReinspectionCategory.locationPhoto:
+        await _editSection(viewModel, AdminSpaceEditSection.location);
+      case ReinspectionCategory.entryFood:
+        await _editSection(viewModel, AdminSpaceEditSection.fieldSurvey);
+    }
   }
 
   void _openReinspectionReview() {
@@ -187,11 +271,13 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
     AdminSpaceDetailViewModel viewModel,
     AdminSpaceEditSection section,
   ) async {
+    _hideToast();
     final result = await context.push<bool>(
       '/admin/spaces/${widget.spaceId}/edit?section=${section.name}',
     );
     if (!mounted || result != true) return;
 
+    _showToast('고친 내용을 반영했어요');
     await viewModel.load();
     if (!mounted) return;
     await context.read<AdminSpaceListViewModel>().load();
@@ -203,12 +289,15 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
     if (!mounted) return;
 
     if (success) {
-      await context.read<AdminSpaceListViewModel>().load();
-      _showMessage(
-        value ? '공개 상태로 변경했어요.' : '비공개 상태로 변경했어요.',
+      _showToast(
+        value ? '공개로 바꿨어요' : '비공개로 바꿨어요',
         actionLabel: '되돌리기',
-        onAction: () => _updateVisibility(!value),
+        onAction: () {
+          _hideToast();
+          _updateVisibility(!value);
+        },
       );
+      await context.read<AdminSpaceListViewModel>().load();
     } else {
       _showMessage(viewModel.errorMessage ?? '공개 상태 변경에 실패했습니다.');
     }
@@ -223,26 +312,26 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
       return;
     }
 
-    final makePrivate = _makePrivateAfterResolve;
-    final success = await viewModel.resolveAllReinspections(
+    final outcome = await viewModel.resolveAllReinspections(
       result: result,
-      makePrivate: makePrivate,
+      makePrivate: _makePrivateAfterResolve,
     );
     if (!mounted) return;
 
-    if (success) {
-      await context.read<AdminSpaceListViewModel>().load();
-      setState(() {
-        _isReviewingRequests = false;
-        _makePrivateAfterResolve = false;
-      });
-      _showMessage(
-        makePrivate
-            ? '재조사 요청 처리가 완료되었고 공간을 비공개로 전환했습니다.'
-            : '재조사 요청 처리가 완료되었습니다.',
-      );
-    } else {
-      _showMessage(viewModel.errorMessage ?? '재조사 요청 처리에 실패했습니다.');
+    switch (outcome) {
+      case ReinspectionResolveResult.success:
+      case ReinspectionResolveResult.conflict:
+        setState(() {
+          _isReviewingRequests = false;
+          _makePrivateAfterResolve = false;
+        });
+        // 제자리에서 결과(요청 없음 카드)가 보이므로 성공은 토스트를 띄우지 않는다.
+        if (outcome == ReinspectionResolveResult.conflict) {
+          _showToast('다른 관리자가 먼저 처리했어요');
+        }
+        await context.read<AdminSpaceListViewModel>().load();
+      case ReinspectionResolveResult.failure:
+        _showMessage(viewModel.errorMessage ?? '재조사 요청 처리에 실패했습니다.');
     }
   }
 
@@ -263,6 +352,14 @@ class _AdminSpaceDetailViewState extends State<_AdminSpaceDetailView> {
         ),
       );
   }
+}
+
+class _ToastData {
+  const _ToastData(this.message, this.actionLabel, this.onAction);
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 }
 
 class _SpaceDetailBody extends StatelessWidget {
@@ -925,12 +1022,14 @@ class _ReinspectionReviewBody extends StatelessWidget {
     required this.resultController,
     required this.makePrivate,
     required this.onMakePrivateChanged,
+    required this.onFixCategory,
   });
 
   final List<ReinspectionRequest> requests;
   final TextEditingController resultController;
   final bool makePrivate;
   final ValueChanged<bool> onMakePrivateChanged;
+  final ValueChanged<ReinspectionCategory> onFixCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -984,6 +1083,7 @@ class _ReinspectionReviewBody extends StatelessWidget {
                   _CategoryRequestRow(
                     category: categories[index],
                     requests: groupedRequests[categories[index]]!,
+                    onTap: () => onFixCategory(categories[index]),
                   ),
                   if (index != categories.length - 1)
                     const Divider(height: 1, color: AppColors.gray200),
@@ -1001,13 +1101,22 @@ class _ReinspectionReviewBody extends StatelessWidget {
             lines: 4,
           ),
           const SizedBox(height: 12),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('공간을 비공개로 전환'),
-            subtitle: const Text('재조사 처리와 함께 사용자 공간 목록에서 숨깁니다.'),
-            value: makePrivate,
-            activeTrackColor: AppColors.positive,
-            onChanged: onMakePrivateChanged,
+          DecoratedBox(
+            decoration: BoxDecoration(
+              // 폐쇄 · 이전 제보가 있으면 비공개 전환을 강조한다(AD-04 #4).
+              color: groupedRequests.containsKey(ReinspectionCategory.closedMoved)
+                  ? AppColors.primaryTint
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppRadius.option),
+            ),
+            child: SwitchListTile.adaptive(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              title: const Text('공간을 비공개로 전환'),
+              subtitle: const Text('재조사 처리와 함께 사용자 공간 목록에서 숨깁니다.'),
+              value: makePrivate,
+              activeTrackColor: AppColors.positive,
+              onChanged: onMakePrivateChanged,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -1055,45 +1164,36 @@ class _ReinspectionRequestRow extends StatelessWidget {
 }
 
 class _CategoryRequestRow extends StatelessWidget {
-  const _CategoryRequestRow({required this.category, required this.requests});
+  const _CategoryRequestRow({
+    required this.category,
+    required this.requests,
+    required this.onTap,
+  });
 
   final ReinspectionCategory category;
   final List<ReinspectionRequest> requests;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(bottom: 8),
-        title: Text(
-          category.label,
-          style: AppTypography.body1.copyWith(fontWeight: FontWeight.w600),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        height: 48,
+        child: Row(
           children: [
+            Expanded(
+              child: Text(
+                category.label,
+                style: AppTypography.body1.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
             Text('${requests.length}건', style: AppTypography.body2),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, color: AppColors.gray400),
           ],
         ),
-        children: [
-          for (final request in requests)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  request.message.trim().isEmpty
-                      ? '내용 없이 항목만 골랐어요.'
-                      : request.message,
-                  style: AppTypography.body2.copyWith(color: AppColors.gray600),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
