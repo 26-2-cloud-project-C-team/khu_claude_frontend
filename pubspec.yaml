@@ -44,6 +44,7 @@ dependencies:
   google_sign_in: ^7.2.0
   google_sign_in_web: ^1.1.3
   image: ^4.12.0
+  lottie: ^3.8.2
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +76,9 @@ flutter:
     - family: Pretendard
       fonts:
         - asset: assets/fonts/Pretendard.woff2
+
+  assets:
+    - assets/lottie/start_hero.json
 
   # To add assets to your application, add an assets section, like this:
   # assets:

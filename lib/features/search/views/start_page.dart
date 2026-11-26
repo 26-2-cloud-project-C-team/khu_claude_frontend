@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../../core/models/purpose.dart';
 import '../../../core/theme/app_colors.dart';
@@ -33,14 +34,7 @@ class StartPage extends StatelessWidget {
           children: [
             Text('경희 공간찾기', style: AppTypography.label.copyWith(color: AppColors.primary)),
             const SizedBox(height: AppSpacing.belowTitle),
-            // TODO: Lottie 히어로(350×180, 반경 20). 동작 줄이기 설정이면 마지막 프레임 정지 이미지.
-            Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: AppColors.gray50,
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
+            const StartHero(),
             const SizedBox(height: AppSpacing.section),
             const Text('어떤 공간을 찾아 드릴까요?', style: AppTypography.h1),
             const SizedBox(height: AppSpacing.belowTitle),
@@ -61,6 +55,58 @@ class StartPage extends StatelessWidget {
               style: AppTypography.body2.copyWith(color: AppColors.gray600),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 랜딩 히어로(높이 180, 반경 20). 3초 동안 한 번 재생하고 마지막 프레임에 멈춘다.
+/// 시스템 '동작 줄이기' 설정이면 처음부터 마지막 프레임을 보여 준다.
+class StartHero extends StatefulWidget {
+  const StartHero({super.key});
+
+  static const asset = 'assets/lottie/start_hero.json';
+
+  @override
+  State<StartHero> createState() => _StartHeroState();
+}
+
+class _StartHeroState extends State<StartHero> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(vsync: this);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onLoaded(LottieComposition composition) {
+    _controller.duration = composition.duration;
+    if (MediaQuery.of(context).disableAnimations) {
+      _controller.value = 1;
+    } else {
+      _controller.forward();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: ColoredBox(
+          color: AppColors.gray50,
+          child: SizedBox(
+            height: 180,
+            width: double.infinity,
+            child: Lottie.asset(
+              StartHero.asset,
+              controller: _controller,
+              fit: BoxFit.cover,
+              onLoaded: _onLoaded,
+            ),
+          ),
         ),
       ),
     );
